@@ -502,40 +502,56 @@ export async function ingestInboundMessage(input: {
   const waTimestamp = toDate(input.timestamp);
 
   // Idempotencia dura: mismo wa_message_id → sin efectos adicionales.
-  const inserted = await db
-    .insert(schema.message)
-    .values({
-      id: newId("message"),
-      organizationId,
-      conversationId: conversation.id,
-      waMessageId: input.waMessageId,
-      direction: "in",
-      type: input.type,
-      text: input.text,
-      status: "delivered",
-      replyToWaMessageId: input.replyToWaMessageId ?? null,
-      waTimestamp,
-    })
-    .onConflictDoNothing({ target: [schema.message.waMessageId] })
-    .returning();
-  const message = inserted[0];
+  //
+  // Revisión — El mensaje, la conversación (no leídos, ventana, orden) y el
+  // lead se escriben en UNA transacción. Antes eran pasos sueltos: si la base
+  // fallaba justo después de guardar el mensaje, el reintento del webhook lo
+  // veía duplicado y salía, y el mensaje quedaba sin no leído, con la ventana
+  // de 24 h cerrada y sin despachar al cerebro. Ahora o entra todo, o no
+  // entra nada y el reintento lo hace completo.
+  const ts = waTimestamp.toISOString();
+  const message = await db.transaction(async (tx) => {
+    const inserted = await tx
+      .insert(schema.message)
+      .values({
+        id: newId("message"),
+        organizationId,
+        conversationId: conversation.id,
+        waMessageId: input.waMessageId,
+        direction: "in",
+        type: input.type,
+        text: input.text,
+        status: "delivered",
+        replyToWaMessageId: input.replyToWaMessageId ?? null,
+        waTimestamp,
+      })
+      .onConflictDoNothing({ target: [schema.message.waMessageId] })
+      .returning();
+    const nuevo = inserted[0];
+    if (!nuevo) return null; // duplicado: el original ya entró completo
+
+    await tx
+      .update(schema.conversation)
+      .set({
+        // Nunca hacia atrás: un mensaje viejo que llega tarde (reintento del
+        // webhook) no cierra la ventana ni baja la conversación en la lista.
+        lastInboundAt: sql`greatest(coalesce(${schema.conversation.lastInboundAt}, ${ts}::timestamp), ${ts}::timestamp)`,
+        lastMessageAt: sql`greatest(coalesce(${schema.conversation.lastMessageAt}, ${ts}::timestamp), ${ts}::timestamp)`,
+        unreadCount: sql`${schema.conversation.unreadCount} + 1`,
+        updatedAt: new Date(),
+      })
+      .where(eq(schema.conversation.id, conversation.id));
+
+    await onLeadActivity(organizationId, contact.id, waTimestamp, tx);
+    return nuevo;
+  });
   if (!message) return; // duplicado
 
+  // El adjunto va después: si falla, el mensaje ya está completo y la burbuja
+  // lo dice («no disponible»); `attachMediaAsset` nunca lanza.
   const asset = input.media
     ? await attachMediaAsset(organizationId, message.id, input.media)
     : null;
-
-  await db
-    .update(schema.conversation)
-    .set({
-      lastInboundAt: waTimestamp,
-      lastMessageAt: waTimestamp,
-      unreadCount: sql`${schema.conversation.unreadCount} + 1`,
-      updatedAt: new Date(),
-    })
-    .where(eq(schema.conversation.id, conversation.id));
-
-  await onLeadActivity(organizationId, contact.id, waTimestamp);
 
   publish(organizationId, {
     type: "message.new",

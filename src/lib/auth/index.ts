@@ -10,7 +10,13 @@ import {
   onUserCreated,
   resolveActiveOrganizationId,
 } from "@/server/auth/on-signup";
-import { isPublicSignupAllowed } from "@/server/auth/registration";
+import {
+  isPublicSignupAllowed,
+  organizationCount,
+  SETUP_CODE_HEADER,
+  setupCodeMatches,
+  setupCodeRequired,
+} from "@/server/auth/registration";
 
 /**
  * Contexto interno del proceso: permite que el alta de cuentas de equipo
@@ -62,7 +68,13 @@ function createAuth() {
       requireEmailVerification: false,
       minPasswordLength: 8,
     },
-    plugins: [organization({ creatorRole: "owner" })],
+    // Una instancia = un negocio: la organización la crea el primer registro
+    // (`onUserCreated`, directo en la BD), nunca el endpoint del plugin. Sin
+    // esto, cualquier usuario podía crear otra organización y volverse su
+    // owner, y lo que asume una sola organización dejaba de ser determinista.
+    plugins: [
+      organization({ creatorRole: "owner", allowUserToCreateOrganization: false }),
+    ],
     hooks: {
       before: createAuthMiddleware(async (ctx) => {
         // Rate limit por IP en login/registro (FR-062): 10 / 10 min → 429.
@@ -81,6 +93,19 @@ function createAuth() {
             throw new APIError("FORBIDDEN", {
               message:
                 "El registro está cerrado: esta instancia ya tiene su organización",
+            });
+          }
+          // El primer registro se queda con la instancia: en producción pide
+          // el código de instalación que el arranque imprime en los logs.
+          if (
+            !isInternalSignup() &&
+            setupCodeRequired() &&
+            (await organizationCount()) === 0 &&
+            !setupCodeMatches(ctx.headers?.get(SETUP_CODE_HEADER))
+          ) {
+            throw new APIError("UNAUTHORIZED", {
+              message:
+                "Falta el código de instalación o no coincide. Está en los logs del arranque de la app",
             });
           }
         }

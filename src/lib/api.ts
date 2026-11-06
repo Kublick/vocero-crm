@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { requireSession, UnauthorizedError, type SessionContext } from "@/lib/auth/session";
+import { canConfigure } from "@/lib/auth/roles";
 
 /** Respuesta de error estándar de la API interna (contrato api.md). */
 export function apiError(
@@ -34,6 +35,29 @@ export function withAuth<Args extends unknown[]>(
       return apiError(500, "internal", "Error interno");
     }
   };
+}
+
+/**
+ * Como `withAuth`, pero solo para quien CONFIGURA la instancia (`owner` o
+ * `admin`, ver `canConfigure`). Un `member` atiende la bandeja: no conecta el
+ * número, no toca la llave de IA, no escribe el agente ni lo enciende. Sin
+ * esta guarda, un miembro del equipo podía mandar la llave de IA guardada a
+ * un servidor suyo con «Probar conexión» o cambiar el número de WhatsApp por
+ * el suyo. Es 403 `forbidden`, el mismo de las guardas que ya existían.
+ */
+export function withConfigAuth<Args extends unknown[]>(
+  handler: (session: SessionContext, ...args: Args) => Promise<Response>
+): (...args: Args) => Promise<Response> {
+  return withAuth(async (session, ...args: Args) => {
+    if (!canConfigure(session.role)) {
+      return apiError(
+        403,
+        "forbidden",
+        "Solo quien administra la cuenta puede cambiar esta configuración"
+      );
+    }
+    return handler(session, ...args);
+  });
 }
 
 /** Parsea el body JSON con un esquema Zod; inválido → Response 422. */

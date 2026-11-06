@@ -18,8 +18,51 @@ imagen `ghcr.io/kevinrivm/vocero-crm:X.Y.Z`.
   todo queda como antes. Pasos del panel de Meta en
   [docs/embedded-signup.md](docs/embedded-signup.md). Sin migración.
 
+### Seguridad
+
+Revisión antes de desplegar para un negocio real. Sin migraciones. **Al
+actualizar:** si tu `.env` todavía tiene algún valor `REEMPLAZA_…`, la app ya no
+arranca hasta que lo cambies (`pnpm init-env` o el `openssl` de
+`.env.example`; `pnpm doctor` lo confirma).
+
+- **Un miembro del equipo ya no puede cambiar la configuración.** Las rutas que
+  escriben ajustes (WhatsApp, IA, agente, conocimiento, Laboratorio, etapas del
+  pipeline, plantillas, agenda, Zoom, Google, Conversions API, demo) y el verify
+  token del webhook ahora son solo para `owner` o `admin` (`withConfigAuth`,
+  403 `forbidden`). Antes, un `member` podía mandar la llave de IA guardada a
+  un servidor suyo con «Probar conexión», reapuntar el proveedor o cambiar el
+  número de WhatsApp por el suyo.
+- **La llave de IA guardada solo viaja a la dirección con la que se guardó.**
+  Cambiar la base URL del proveedor, probarla o traer sus modelos contra otra
+  dirección pide pegar la llave (422 `url_sin_llave` / `sin_token`).
+- **El primer registro pide un código de instalación** en producción mientras
+  la instancia no tenga dueño. El arranque lo imprime en los logs («Código de
+  instalación: XXXX-XXXX-XXXX»); se deriva de `BETTER_AUTH_SECRET` o, si la
+  defines, es `SETUP_TOKEN`. Antes, cualquiera que encontrara el dominio entre
+  el despliegue y tu registro se quedaba con la instancia. Las instancias que
+  ya tienen dueño no notan nada.
+- **Ya no se pueden crear organizaciones extra** por el endpoint de Better
+  Auth (`allowUserToCreateOrganization: false`), y las búsquedas de «la
+  organización de la instancia» toman siempre la más antigua.
+- **La app no arranca con los valores de ejemplo** (`REEMPLAZA_…`) de
+  `.env.example`: el secreto de sesiones y el verify token de ejemplo pasaban
+  la validación por longitud.
+
 ### Arreglado
 
+- **Un reinicio del cerebro ya no deja a los clientes con un humano.** El
+  despacho reintenta seis veces en unos 6 minutos (1 s → 4 s → 15 s → 1 min →
+  5 min) en vez de tres en unos 5 s; una caída más larga sigue cayendo a
+  humano. El Laboratorio conserva los tres intentos rápidos. Contrato
+  actualizado en `specs/021-despacho-estandar/contracts/despacho.md`.
+- **La ingesta de un mensaje es atómica.** El mensaje, la conversación (no
+  leídos, ventana de 24 h, orden en la lista) y el lead se escriben en una
+  transacción. Antes, un fallo de la base justo después de guardar el mensaje
+  lo dejaba sin no leído, con la ventana cerrada y sin despacharse al cerebro,
+  porque el reintento lo veía duplicado.
+- **Un mensaje viejo que llega tarde ya no mueve la ventana de 24 h hacia
+  atrás** ni baja la conversación en la lista (`greatest` sobre
+  `last_inbound_at` y `last_message_at`).
 - **`#100/2388339` al suscribir la app en la Cuenta de WhatsApp ya no es
   fatal** si la Cuenta de mensajes quedó suscrita: desde el 28-oct-2026 Meta
   lo responde en las cuentas partidas, y el registro del webhook se cortaba

@@ -1,5 +1,5 @@
 import { and, asc, eq, sql } from "drizzle-orm";
-import { getDb, schema } from "@/lib/db";
+import { getDb, schema, type DbOrTx } from "@/lib/db";
 import { newId } from "@/lib/db/ids";
 import { recordLeadCreated } from "@/server/leads/stage-history";
 import type { StageChangeSource } from "@/lib/types";
@@ -12,9 +12,10 @@ import type { StageChangeSource } from "@/lib/types";
 export async function onLeadActivity(
   organizationId: string,
   contactId: string,
-  at: Date
+  at: Date,
+  /** Para ir dentro de la transacción de la ingesta (revisión: ingesta atómica). */
+  db: DbOrTx = getDb()
 ): Promise<void> {
-  const db = getDb();
 
   const existing = await db
     .select({ id: schema.lead.id })
@@ -30,7 +31,7 @@ export async function onLeadActivity(
     return;
   }
 
-  await createLeadForContact({ organizationId, contactId, at });
+  await createLeadForContact({ organizationId, contactId, at, db });
 }
 
 /**
@@ -52,8 +53,9 @@ export async function createLeadForContact(input: {
   /** Quién dio de alta: el webhook es `sistema`, la captura manual `dueno`. */
   source?: StageChangeSource;
   actorUserId?: string | null;
+  db?: DbOrTx;
 }): Promise<{ id: string; stageId: string } | null> {
-  const db = getDb();
+  const db = input.db ?? getDb();
 
   let stageId = input.stageId;
   if (!stageId) {
@@ -112,6 +114,7 @@ export async function createLeadForContact(input: {
     occurredAt: input.at,
     actorUserId: input.actorUserId ?? null,
     source: input.source ?? "sistema",
+    db,
   });
 
   return creado;

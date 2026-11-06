@@ -6,6 +6,7 @@
 export async function register(): Promise<void> {
   if (process.env.NEXT_RUNTIME === "nodejs") {
     const {
+      announceSetupCode,
       checkMediaDir,
       cleanupOrphanRuns,
       encryptLegacySecrets,
@@ -15,6 +16,7 @@ export async function register(): Promise<void> {
     await checkMediaDir();
     await cleanupOrphanRuns();
     await encryptLegacySecrets();
+    await announceSetupCode();
     resumeDispatch();
     resumeWebhooks();
   }

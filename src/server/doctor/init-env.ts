@@ -1,3 +1,4 @@
+import { PLACEHOLDER_PREFIX } from "@/lib/env";
 import { randomBytes } from "node:crypto";
 import { access, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
@@ -12,8 +13,8 @@ import path from "node:path";
  * guía inline de cada variable.
  */
 
-/** Prefijo de los valores de ejemplo que hay que sustituir. */
-export const PLACEHOLDER_PREFIX = "REEMPLAZA_";
+/** Prefijo de los valores de ejemplo que hay que sustituir (uno solo: lo comparte `getEnv`). */
+export { PLACEHOLDER_PREFIX };
 
 /** Dominio por defecto: el Caddyfile lo sirve con certificado interno. */
 export const DEFAULT_DOMAIN = "localhost";

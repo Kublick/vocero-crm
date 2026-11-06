@@ -58,3 +58,7 @@ export function getDb() {
 }
 
 export { schema };
+
+/** La base o una transacción abierta sobre ella: lo que acepta un paso que puede ir dentro de otra escritura. */
+export type Db = ReturnType<typeof getDb>;
+export type DbOrTx = Db | Parameters<Parameters<Db["transaction"]>[0]>[0];

@@ -101,6 +101,23 @@ const BUILD_PLACEHOLDERS: Record<string, string> = {
 
 let cached: Env | null = null;
 
+/** Prefijo de los valores de ejemplo de `.env.example` (`pnpm doctor` usa el mismo). */
+export const PLACEHOLDER_PREFIX = "REEMPLAZA_";
+
+/**
+ * Revisión de seguridad — Las variables que siguen con el valor de ejemplo.
+ * El esquema solo mide longitudes, y `REEMPLAZA_secreto_de_sesiones` o
+ * `REEMPLAZA_token_de_verificacion` pasan: un `.env` rellenado a mano sin
+ * `pnpm doctor` arrancaba con un secreto de sesiones público y una URL de
+ * webhook adivinable. En runtime se niega a arrancar; en el build no aplica
+ * (ahí no hay secretos).
+ */
+export function placeholderVars(source: Record<string, string | undefined>): string[] {
+  return Object.keys(envSchema.shape).filter((k) =>
+    (source[k] ?? "").includes(PLACEHOLDER_PREFIX)
+  );
+}
+
 /**
  * Valida un entorno contra el esquema SIN lanzar ni cachear. Es lo que usa
  * `getEnv()` y también `pnpm doctor` (scripts/doctor.ts): un solo esquema y
@@ -127,6 +144,15 @@ export function getEnv(): Env {
       `Variables de entorno inválidas o faltantes:\n  ${missing}\n` +
         "Revisa .env.example para la guía de cada variable."
     );
+  }
+  if (!isBuild) {
+    const pendientes = placeholderVars(process.env);
+    if (pendientes.length > 0) {
+      throw new Error(
+        `Variables con el valor de ejemplo (${PLACEHOLDER_PREFIX}…): ${pendientes.join(", ")}\n` +
+          "Genera valores reales con pnpm init-env (o el comando openssl de .env.example) y comprueba con pnpm doctor."
+      );
+    }
   }
   cached = parsed.data;
   return cached;

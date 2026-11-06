@@ -1,5 +1,5 @@
 ﻿import { and, asc, eq } from "drizzle-orm";
-import { getDb, schema } from "@/lib/db";
+import { getDb, schema, type DbOrTx } from "@/lib/db";
 import { newId } from "@/lib/db/ids";
 import { scoped } from "@/lib/db/tenant";
 import type { LossReason, StageChangeSource } from "@/lib/types";
@@ -180,8 +180,10 @@ export async function recordLeadCreated(input: {
   occurredAt?: Date;
   actorUserId?: string | null;
   source?: StageChangeSource;
+  /** Para escribir dentro de la transacción de quien llama (la ingesta). */
+  db?: DbOrTx;
 }): Promise<void> {
-  const db = getDb();
+  const db = input.db ?? getDb();
   const stage = await db
     .select({
       id: schema.pipelineStage.id,

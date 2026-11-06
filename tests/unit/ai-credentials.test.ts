@@ -13,6 +13,11 @@ let filaExistente: Record<string, unknown>[] = [];
 
 vi.mock("@/lib/db", () => ({
   getDb: () => ({
+    select: () => ({
+      from: () => ({
+        where: () => ({ limit: () => Promise.resolve(filaExistente) }),
+      }),
+    }),
     insert: () => ({
       values: (v: Record<string, unknown>) => {
         inserted.push(v);
@@ -143,6 +148,59 @@ describe("saveAiCredential", () => {
     expect(guardada.status).toBe("paused_invalid_token");
     expect(updated[0]).not.toHaveProperty("status");
     expect(updated[0]).not.toHaveProperty("tokenCipher");
+  });
+});
+
+describe("la llave guardada no se reapunta (revisión de seguridad)", () => {
+  async function filaConLlave(token: string) {
+    const { encryptSecret } = await import("@/lib/crypto");
+    const enc = encryptSecret(token);
+    filaExistente = [
+      {
+        id: "aicred_1",
+        organizationId: "org_1",
+        provider: "openai_compatible",
+        baseUrl: "https://proveedor.legitimo/v1",
+        model: "m",
+        tokenCipher: enc.cipher,
+        tokenIv: enc.iv,
+        tokenTag: enc.tag,
+        tokenLast4: "abcd",
+        status: "active",
+        statusReason: null,
+        statusChangedAt: new Date(),
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      },
+    ];
+  }
+
+  it("guardar otra base URL sin pegar llave → url_sin_llave y no toca la fila", async () => {
+    await filaConLlave("sk-del-duenio-abcd");
+    const { saveAiCredential } = await import("@/server/ai/credentials");
+    await expect(
+      saveAiCredential({
+        organizationId: "org_1",
+        provider: "openai_compatible",
+        baseUrl: "http://127.0.0.1:3299/v1",
+        model: "x",
+      })
+    ).rejects.toMatchObject({ code: "url_sin_llave" });
+    expect(updated).toHaveLength(0);
+  });
+
+  it("probar contra otra base URL sin llave → null (no entrega la guardada)", async () => {
+    await filaConLlave("sk-del-duenio-abcd");
+    const { llaveParaProbar } = await import("@/server/ai/settings");
+    expect(
+      await llaveParaProbar("org_1", undefined, "http://127.0.0.1:3299/v1")
+    ).toBeNull();
+    expect(
+      await llaveParaProbar("org_1", undefined, "https://proveedor.legitimo/v1")
+    ).toEqual({ token: "sk-del-duenio-abcd", guardada: true });
+    expect(
+      await llaveParaProbar("org_1", "sk-pegada-1234", "http://otro/v1")
+    ).toEqual({ token: "sk-pegada-1234", guardada: false });
   });
 });
 

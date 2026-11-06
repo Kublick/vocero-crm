@@ -17,7 +17,8 @@
  *   1) app corriendo (`pnpm dev`) sobre una base migrada, con
  *      WA_MOCK_ENABLED=true, META_GRAPH_BASE_URL → wa-mock,
  *      OPENROUTER_BASE_URL → ai-mock + OPENROUTER_API_TOKEN + OPENROUTER_MODEL,
- *      BOT_API_KEY, AGENT_COALESCE_MS=1500,
+ *      BOT_API_KEY, AGENT_COALESCE_MS=1500, DISPATCH_RETRY_FAST=1 (los seis
+ *      intentos del despacho en ~20 s en vez de ~6 min),
  *      BRAIN_DISPATCH_URL=http://127.0.0.1:3261/vocero/dispatch (sin
  *      BRAIN_HEALTH_URL) y CHANNELS=whatsapp,instagram,messenger,tiktok
  *      (Instagram y TikTok entran por Zernio: ZERNIO_BASE_URL → zernio-mock).
@@ -1247,7 +1248,40 @@ async function laboratorio(cerebro) {
 // ---------------------------------------------------------------------------
 
 async function cerebroCaido(cerebro) {
-  console.log("\n== AC6/AC7: el cerebro responde 500 → tres intentos y a un humano ==");
+  console.log("\n== Revisión: el cerebro se cae unos segundos → reintenta y contesta, sin humano ==");
+  const nombreR = `Rita Reinicio ${MARCA}`;
+  cerebro.estado.modo = "500";
+  await entranteWa(telefono(13), nombreR, `¿sigue disponible la casa? ${MARCA}`);
+  const convR = await convDe(nombreR);
+  ok("el mensaje está en la bandeja", Boolean(convR));
+  if (convR) {
+    // Dos intentos fallan (el reinicio del cerebro) y vuelve.
+    await hasta(async () => cerebro.de(convR.id).length >= 2, COALESCE + 15000);
+    cerebro.estado.modo = "ok";
+    // Este guion contesta a mano (`responder: "prueba"`): lo que importa es
+    // que un reintento llegó ya con el cerebro arriba y lo aceptó.
+    const recibido = await hasta(
+      async () => cerebro.de(convR.id).find((r) => r.modo === "ok"),
+      30000
+    );
+    ok(
+      "un reintento le llegó al cerebro cuando volvió",
+      Boolean(recibido),
+      cerebro.de(convR.id).map((r) => r.modo).join(",")
+    );
+    ok(
+      "del MISMO despacho que los que fallaron",
+      new Set(cerebro.de(convR.id).map((r) => r.evento.dispatchId)).size === 1
+    );
+    const quieta = (await conversaciones()).find((c) => c.id === convR.id);
+    ok(
+      "y la conversación NO quedó con un humano",
+      quieta?.aiEnabled === true && !quieta?.handoffAt,
+      JSON.stringify({ ai: quieta?.aiEnabled, handoffAt: quieta?.handoffAt })
+    );
+  }
+
+  console.log("\n== AC6/AC7: el cerebro sigue respondiendo 500 → seis intentos y a un humano ==");
   const nombre = `Gabi Caído ${MARCA}`;
   cerebro.estado.modo = "500";
   const t0 = Date.now();
@@ -1258,7 +1292,7 @@ async function cerebroCaido(cerebro) {
 
   const traspaso = await hasta(
     async () => (await conversaciones()).find((c) => c.id === conv.id && c.handoffAt),
-    COALESCE + 30000
+    COALESCE + 60000
   );
   ok("la conversación pasó a un humano", Boolean(traspaso), `${Date.now() - t0} ms`);
   ok(
@@ -1267,7 +1301,9 @@ async function cerebroCaido(cerebro) {
     JSON.stringify({ ai: traspaso?.aiEnabled, reason: traspaso?.handoffReason })
   );
   const intentos = cerebro.de(conv.id);
-  ok("fueron tres intentos", intentos.length === 3, String(intentos.length));
+  // Seis intentos (con DISPATCH_RETRY_FAST=1 las esperas tras el segundo se
+  // acortan a 4 s; sin él, el sexto llega ~6 min después del primero).
+  ok("fueron seis intentos", intentos.length === 6, String(intentos.length));
   ok(
     "del MISMO despacho (el dispatchId es la clave de idempotencia)",
     new Set(intentos.map((r) => r.evento.dispatchId)).size === 1
@@ -1275,13 +1311,13 @@ async function cerebroCaido(cerebro) {
   ok("todos firmados", intentos.every((r) => r.firmaOk));
   ok(
     "con espera creciente entre ellos (~1 s y ~4 s)",
-    intentos.length === 3 &&
+    intentos.length === 6 &&
       intentos[1].at - intentos[0].at >= 900 &&
       intentos[2].at - intentos[1].at >= 3600,
-    intentos.length === 3 ? `${intentos[1].at - intentos[0].at} ms, ${intentos[2].at - intentos[1].at} ms` : ""
+    intentos.length === 6 ? `${intentos[1].at - intentos[0].at} ms, ${intentos[2].at - intentos[1].at} ms` : ""
   );
   await sleep(3000);
-  ok("y no hay un cuarto", cerebro.de(conv.id).length === 3);
+  ok("y no hay un séptimo", cerebro.de(conv.id).length === 6);
 
   const st = await estadoCerebro();
   ok(
@@ -1294,7 +1330,7 @@ async function cerebroCaido(cerebro) {
   await sleep(TRAS_LA_VENTANA);
   ok(
     "ya con un humano, los mensajes nuevos no se despachan",
-    cerebro.de(conv.id).length === 3,
+    cerebro.de(conv.id).length === 6,
     String(cerebro.de(conv.id).length)
   );
 

@@ -51,8 +51,8 @@ misma firma y la misma tabla, para que los dos repos lo compartan.
   contestar. Sin columnas nuevas en `conversation`.
 - **D7 — Sin cortacircuitos en esta entrega.** Cloud lo lleva por organización
   en una tabla que la raíz no tiene. Con el cerebro caído, cada conversación
-  agota sus tres intentos (unos 5 s de esperas, más lo que tarde cada intento
-  en fallar) y cae a un humano.
+  agota sus intentos (seis en unos 6 minutos desde la revisión posterior a la
+  2.7.0; eran tres en unos 5 s) y cae a un humano.
 - **D8 — El cerebro de prueba vive en el arnés**, en otro proceso, como la Nea
   falsa de «Quién responde». El despacho cruza HTTP de verdad y la firma se
   comprueba desde fuera; el producto no gana rutas `/api/dev` nuevas.
@@ -108,7 +108,9 @@ un `POST` firmado al cerebro, y lo que el cerebro conteste por
 ### Historia 2 — El cerebro falla (P1)
 
 - **AC6** Si el cerebro responde 5xx, 429, no contesta o no acepta la conexión,
-  el mensaje sigue en la bandeja y el CRM reintenta: tres intentos en total.
+  el mensaje sigue en la bandeja y el CRM reintenta: seis intentos en unos 6
+  minutos (tres rápidos en el Laboratorio). Eran tres hasta la 2.7.0: un
+  reinicio del cerebro dejaba a los clientes con un humano.
 - **AC7** Agotados los intentos, la conversación queda en manos de un humano
   (IA en pausa, motivo `error`), la bandeja lo ve en vivo y el despacho queda
   `caducado_a_humano` con el motivo.

@@ -179,7 +179,8 @@ le hace a tu agente un `POST` firmado con lo que el cliente escribió desde la
 última respuesta, junto, después de esperar a que termine su ráfaga. Tu agente
 contesta por `POST /api/bot/messages`. Es igual para WhatsApp, Instagram,
 Messenger y TikTok, y no hay secreto de Meta que copiar ni cola de reenvío que
-vigilar. Si tu agente no recibe el turno (tres intentos), la conversación
+vigilar. Si tu agente no recibe el turno (seis intentos en unos 6 minutos:
+un reinicio o un redespliegue no lo cuenta como caída), la conversación
 queda con una persona y el mensaje sigue en la bandeja. El contrato del evento
 y de la firma está en
 [`specs/021-despacho-estandar/contracts/despacho.md`](specs/021-despacho-estandar/contracts/despacho.md)
@@ -445,7 +446,10 @@ solas al arrancar.
 ### Primer arranque
 
 1. Entra y **regístrate**: el primer registro crea tu organización y cierra el
-   registro público.
+   registro público. Hazlo en cuanto despliegues. En producción te pide el
+   **código de instalación**: está en los logs del arranque, en la línea
+   «Código de instalación» (`docker compose logs app | grep -i instalación`,
+   o los logs del despliegue en Coolify).
 2. Lo primero que ves es la **Guía de inicio**: configura tu agente, vincula
    tu proveedor de IA, conecta tu número de WhatsApp y, opcional, **conecta tu
    agente** (Nea u otro; su dirección va en las variables de entorno, el paso

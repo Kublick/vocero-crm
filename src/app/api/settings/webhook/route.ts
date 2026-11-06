@@ -1,4 +1,4 @@
-import { apiError, withAuth } from "@/lib/api";
+import { apiError, withAuth, withConfigAuth } from "@/lib/api";
 import { canConfigure } from "@/lib/auth/roles";
 import { getEnv } from "@/lib/env";
 import { isChannelEnabled } from "@/server/channels/enabled";
@@ -19,7 +19,7 @@ export const dynamic = "force-dynamic";
  * viajan las tres URLs y la pantalla de cada canal enseña la suya. Las de un
  * canal apagado van en null: no existen en esta instancia (ADR-001).
  */
-export const GET = withAuth(async () => {
+export const GET = withConfigAuth(async () => {
   const env = getEnv();
   const url = webhookUrl("wa");
   return Response.json({

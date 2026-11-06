@@ -175,8 +175,13 @@ Notas que son contrato:
 
 ## Reintentos y caída a humano
 
-Tres intentos en total, con esperas de `1 s → 4 s` entre ellos (más un poco de
-variación para que no reintenten todos a la vez). Agotados, o ante un 4xx:
+Seis intentos en total, con esperas de `1 s → 4 s → 15 s → 1 min → 5 min`
+entre ellos (más un poco de variación para que no reintenten todos a la vez):
+unos 6 minutos, lo bastante para que un reinicio o un redespliegue del cerebro
+no deje al cliente con un humano. Las conversaciones del Laboratorio conservan
+tres intentos (`1 s → 4 s`): alguien está mirando la corrida. Hasta la 2.7.0
+eran tres intentos para todo; el `dispatchId` repetido sigue siendo la clave de
+idempotencia de cada reintento. Agotados, o ante un 4xx:
 
 - el despacho queda `caducado_a_humano` con el motivo;
 - la conversación pasa a un humano: IA en pausa con motivo `error`, igual que

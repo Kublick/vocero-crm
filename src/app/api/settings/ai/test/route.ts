@@ -1,4 +1,4 @@
-import { apiError, parseBody, withAuth } from "@/lib/api";
+import { apiError, parseBody, withConfigAuth } from "@/lib/api";
 import { probeProvider } from "@/lib/ai/probe";
 import { apiRoot } from "@/lib/ai/presets";
 import { getAiCredentialPublic, marcarActiva } from "@/server/ai/credentials";
@@ -17,11 +17,16 @@ export const dynamic = "force-dynamic";
  * si el proveedor la acepta y estaba pausada, vuelve a `active` — el camino
  * de «recargué saldo» sin pegar la misma llave otra vez.
  */
-export const POST = withAuth(async (session, req: Request) => {
+export const POST = withConfigAuth(async (session, req: Request) => {
   const body = await parseBody(req, aiProbeSchema);
   if (!body.ok) return body.response;
 
-  const llave = await llaveParaProbar(session.organizationId, body.data.token);
+  const baseUrl = baseUrlEfectiva(body.data.provider, body.data.baseUrl);
+  const llave = await llaveParaProbar(
+    session.organizationId,
+    body.data.token,
+    baseUrl
+  );
   if (!llave) {
     return apiError(
       422,
@@ -30,7 +35,6 @@ export const POST = withAuth(async (session, req: Request) => {
     );
   }
 
-  const baseUrl = baseUrlEfectiva(body.data.provider, body.data.baseUrl);
   const result = await probeProvider({
     baseUrl,
     model: body.data.model,

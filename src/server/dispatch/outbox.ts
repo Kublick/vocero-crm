@@ -36,14 +36,42 @@ export function ventanaCoalesceMs(): number {
 
 /** Cuánto tiempo un worker se reserva una fila antes de que otro pueda tomarla. */
 export const LEASE_MS = 180_000;
-export const MAX_INTENTOS = 3;
-/** Espera tras el intento 1 y tras el 2. El tercero ya no reintenta. */
-export const BACKOFF_MS = [1000, 4000];
+/**
+ * Revisión de seguridad — Seis intentos en unos 6 minutos (1 s → 4 s → 15 s →
+ * 1 min → 5 min). Antes eran tres en unos 5 s: un cerebro que se reiniciaba
+ * o se redesplegaba dejaba con un humano, para siempre, a cada cliente que
+ * escribía en esos segundos, y nadie le contestaba. Seis minutos cubren un
+ * reinicio o un redespliegue; una caída más larga sigue cayendo a humano.
+ */
+export const MAX_INTENTOS = 6;
+/** Espera tras el intento 1, 2… 5. El sexto ya no reintenta. */
+export const BACKOFF_MS = [1000, 4000, 15_000, 60_000, 300_000];
+/**
+ * El Laboratorio conserva los tres intentos rápidos: alguien está mirando la
+ * corrida, y cada turno tiene su propio límite (`TURNO_TIMEOUT_MS`).
+ */
+export const MAX_INTENTOS_PRUEBA = 3;
+/** Con mocks y `DISPATCH_RETRY_FAST=1`, ninguna espera pasa de 4 s (arneses E2E). */
+const ESPERA_MAXIMA_RAPIDA_MS = 4000;
 
 /** Pura: la espera base antes del siguiente intento. */
 export function esperaDeReintento(intentosHechos: number): number {
   const i = Math.min(Math.max(intentosHechos, 1), BACKOFF_MS.length) - 1;
-  return BACKOFF_MS[i] ?? 1000;
+  const base = BACKOFF_MS[i] ?? 1000;
+  if (process.env.DISPATCH_RETRY_FAST === "1" && process.env.WA_MOCK_ENABLED === "true") {
+    return Math.min(base, ESPERA_MAXIMA_RAPIDA_MS);
+  }
+  return base;
+}
+
+/** Cuántos intentos le tocan a una conversación: menos si es del Laboratorio. */
+async function maxIntentosDe(conversationId: string): Promise<number> {
+  const [conv] = await getDb()
+    .select({ isTest: schema.conversation.isTest })
+    .from(schema.conversation)
+    .where(eq(schema.conversation.id, conversationId))
+    .limit(1);
+  return conv?.isTest ? MAX_INTENTOS_PRUEBA : MAX_INTENTOS;
 }
 
 export type FilaDespacho = typeof schema.dispatch.$inferSelect;
@@ -290,7 +318,9 @@ export async function reintentarOCaducar(
   detalle: string,
   ahora: Date = new Date()
 ): Promise<boolean> {
-  if (fila.attempts >= MAX_INTENTOS) return caducarAHumano(fila, detalle);
+  if (fila.attempts >= (await maxIntentosDe(fila.conversationId))) {
+    return caducarAHumano(fila, detalle);
+  }
 
   const base = esperaDeReintento(fila.attempts);
   // Variación: sin ella, N despachos que fallaron a la vez reintentan a la

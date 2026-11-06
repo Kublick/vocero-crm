@@ -1,10 +1,15 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { SIN_DESPACHO, despachoFallando } from "@/lib/brain-status";
 import { leerConfigDespacho } from "@/server/brains/config";
 import { hayMensajesSinDespachar, sinDespachar } from "@/server/brains/deliver";
 import { dispatchDto } from "@/server/dispatch/estado";
 import { checkDispatch } from "@/server/doctor/checks";
-import { BACKOFF_MS, MAX_INTENTOS, esperaDeReintento } from "@/server/dispatch/outbox";
+import {
+  BACKOFF_MS,
+  MAX_INTENTOS,
+  MAX_INTENTOS_PRUEBA,
+  esperaDeReintento,
+} from "@/server/dispatch/outbox";
 
 /**
  * 021 — Cuándo hay despacho, y qué se dice cuando no.
@@ -136,16 +141,31 @@ describe("despachoFallando — cuándo es una alarma", () => {
 });
 
 describe("reintentos", () => {
-  it("tres intentos en total: se espera tras el primero y tras el segundo", () => {
-    expect(MAX_INTENTOS).toBe(3);
+  it("seis intentos en unos 6 minutos: un reinicio del cerebro no deja al cliente con un humano", () => {
+    expect(MAX_INTENTOS).toBe(6);
     expect(BACKOFF_MS).toHaveLength(MAX_INTENTOS - 1);
-    expect(esperaDeReintento(1)).toBe(1000);
-    expect(esperaDeReintento(2)).toBe(4000);
+    expect([1, 2, 3, 4, 5].map(esperaDeReintento)).toEqual([1000, 4000, 15_000, 60_000, 300_000]);
+    // Lo que tarda en caer a humano, sin contar lo que tarda cada intento.
+    expect(BACKOFF_MS.reduce((a, b) => a + b, 0)).toBeGreaterThanOrEqual(5 * 60_000);
+  });
+
+  it("el Laboratorio conserva tres intentos rápidos", () => {
+    expect(MAX_INTENTOS_PRUEBA).toBe(3);
+    expect(esperaDeReintento(1) + esperaDeReintento(2)).toBeLessThan(10_000);
   });
 
   it("un contador fuera de rango no revienta ni da una espera de cero", () => {
     expect(esperaDeReintento(0)).toBe(1000);
-    expect(esperaDeReintento(99)).toBe(4000);
+    expect(esperaDeReintento(99)).toBe(300_000);
+  });
+
+  it("DISPATCH_RETRY_FAST solo acorta con mocks, y nunca por debajo de las dos primeras", () => {
+    vi.stubEnv("DISPATCH_RETRY_FAST", "1");
+    vi.stubEnv("WA_MOCK_ENABLED", "true");
+    expect([1, 2, 3, 4, 5].map(esperaDeReintento)).toEqual([1000, 4000, 4000, 4000, 4000]);
+    vi.stubEnv("WA_MOCK_ENABLED", "");
+    expect(esperaDeReintento(5)).toBe(300_000);
+    vi.unstubAllEnvs();
   });
 });
 

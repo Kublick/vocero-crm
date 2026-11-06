@@ -1,5 +1,5 @@
 import { cookies } from "next/headers";
-import { eq } from "drizzle-orm";
+import { asc, eq } from "drizzle-orm";
 import { getDb, schema } from "@/lib/db";
 import { THEME_COOKIE } from "@/lib/theme";
 import {
@@ -36,7 +36,11 @@ export async function aparienciaDelNegocio(organizationId?: string | null): Prom
         .where(eq(schema.organization.id, organizationId))
         .limit(1)
     : // Sin sesión (login, layout raíz): la única organización de la instancia.
-      await db.select({ metadata: schema.organization.metadata }).from(schema.organization).limit(1);
+      await db
+        .select({ metadata: schema.organization.metadata })
+        .from(schema.organization)
+        .orderBy(asc(schema.organization.createdAt))
+        .limit(1);
   const r = aparienciaSchema.safeParse(leerMetadata(rows[0]?.metadata ?? null).apariencia);
   return r.success ? r.data : null;
 }

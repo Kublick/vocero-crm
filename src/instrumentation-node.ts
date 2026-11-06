@@ -123,3 +123,24 @@ export function resumeWebhooks(): void {
   iniciarBarrido();
   void barrido();
 }
+
+/**
+ * Revisión de seguridad — Mientras la instancia no tenga dueño, el primer
+ * registro pide el código de instalación (en producción). Aquí se imprime
+ * para que quien instaló lo copie de los logs (`docker compose logs app`, o
+ * los logs del despliegue en Coolify). Con dueño ya no se imprime: deja de
+ * servir para algo.
+ */
+export async function announceSetupCode(): Promise<void> {
+  try {
+    const { organizationCount, setupCode, setupCodeRequired } = await import(
+      "@/server/auth/registration"
+    );
+    if (!setupCodeRequired() || (await organizationCount()) > 0) return;
+    console.log(
+      `[boot] Código de instalación: ${setupCode()} — pídelo al crear la primera cuenta en /register`
+    );
+  } catch (err) {
+    console.error("[boot] no se pudo calcular el código de instalación:", err);
+  }
+}

@@ -1,4 +1,5 @@
 import { timingSafeEqual } from "node:crypto";
+import { asc } from "drizzle-orm";
 import { getDb, schema } from "@/lib/db";
 import { apiError } from "@/lib/api";
 import { checkRateLimit, clientIp } from "@/lib/rate-limit";
@@ -96,6 +97,7 @@ export async function resolveInstanceOrg(): Promise<string | null> {
   const rows = await db
     .select({ id: schema.organization.id })
     .from(schema.organization)
+    .orderBy(asc(schema.organization.createdAt))
     .limit(1);
   cachedOrgId = rows[0]?.id ?? null;
   return cachedOrgId;

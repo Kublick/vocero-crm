@@ -93,7 +93,8 @@ vi.mock("@/lib/db", async (importOriginal) => {
   let seq = 0;
   return {
     ...original,
-    getDb: () => ({
+    getDb: () => {
+      const db: Record<string, unknown> = {
       select: () => {
         const rows = h.selectRows.shift() ?? [];
         return chain(() => rows);
@@ -121,7 +122,11 @@ vi.mock("@/lib/db", async (importOriginal) => {
         return c;
       },
       update: () => chain(() => []),
-    }),
+      };
+      // La ingesta escribe mensaje + conversación + lead en una transacción.
+      db.transaction = (fn: (tx: unknown) => unknown) => fn(db);
+      return db;
+    },
   };
 });
 

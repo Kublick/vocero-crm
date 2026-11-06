@@ -101,14 +101,20 @@ export function baseUrlEfectiva(
 /**
  * La llave con la que probar o listar: la escrita, o la guardada. `null` si
  * no hay ninguna de las dos.
+ *
+ * La guardada solo se usa contra la base URL con la que se guardó: si el
+ * formulario apunta a otra dirección, hay que pegar la llave. Si no, «Probar
+ * conexión» hacia un servidor ajeno le entregaba la llave del dueño.
  */
 export async function llaveParaProbar(
   organizationId: string,
-  escrita: string | undefined
+  escrita: string | undefined,
+  baseUrl: string
 ): Promise<{ token: string; guardada: boolean } | null> {
   if (escrita) return { token: escrita, guardada: false };
   const cred = await getAiCredentialSecret(organizationId);
-  return cred ? { token: cred.token, guardada: true } : null;
+  if (!cred || cred.baseUrl !== baseUrl) return null;
+  return { token: cred.token, guardada: true };
 }
 
 export type AiSettingsView = {

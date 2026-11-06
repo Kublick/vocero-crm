@@ -164,10 +164,16 @@ docker compose up -d
 
 ## Cierre (obligatorio decirlo al usuario)
 
+Antes de cerrar, saca de los logs del arranque el **código de instalación**
+(línea `Código de instalación: XXXX-XXXX-XXXX`: en la Ruta B,
+`docker compose logs app | grep -i "instalación"`; en la Ruta A, los logs del
+despliegue en Coolify) y dáselo al usuario en el paso 1.
+
 > ✅ Vocero quedó instalado en `https://<dominio>`.
 >
-> 1. Entra y **regístrate**: el primer registro crea tu organización (después
->    el registro público se cierra solo).
+> 1. Entra y **regístrate ya**, con el código de instalación `<código>`: el
+>    primer registro crea tu organización (después el registro público se
+>    cierra solo).
 > 2. Pulsa **"Cargar datos de demostración"** si quieres explorar con la
 >    Ferretería El Martillo.
 > 3. Para conectar tu WhatsApp entra a **Configuración → WhatsApp**: ahí está

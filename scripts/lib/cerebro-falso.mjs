@@ -46,6 +46,7 @@
  *   ZOOM_OAUTH_BASE_URL=http://localhost:3260/api/dev/zoom-mock
  *   CHANNELS=whatsapp,instagram,messenger,tiktok
  *   AGENT_COALESCE_MS=1500                     AGENDA=on
+ *   DISPATCH_RETRY_FAST=1                      (seis intentos en ~20 s)
  *   MEDIA_DIR=./.dev-media
  *   BOT_API_KEY=<16+ caracteres>
  *   BRAIN_DISPATCH_URL=http://127.0.0.1:3261/vocero/dispatch

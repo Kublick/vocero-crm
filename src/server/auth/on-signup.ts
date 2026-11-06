@@ -1,4 +1,4 @@
-import { count, eq, sql } from "drizzle-orm";
+import { asc, count, eq, sql } from "drizzle-orm";
 import { getDb, schema } from "@/lib/db";
 import { newId } from "@/lib/db/ids";
 
@@ -76,6 +76,7 @@ export async function resolveMembership(
     })
     .from(schema.member)
     .where(eq(schema.member.userId, userId))
+    .orderBy(asc(schema.member.createdAt))
     .limit(1);
   return rows[0] ?? null;
 }

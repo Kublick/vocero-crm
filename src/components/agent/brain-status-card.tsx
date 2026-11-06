@@ -206,7 +206,7 @@ function dispatchView(d: BrainDispatchDto, now: number): RowView {
     return {
       tone: "warn",
       headline: `Activo · ${d.host} · el último turno no llegó`,
-      detail: `${capitalize(d.lastFailure.detail)} (${haceCuanto(d.lastFailure.at, now)}). Tras tres intentos fallidos, la conversación queda con una persona.${espera}`,
+      detail: `${capitalize(d.lastFailure.detail)} (${haceCuanto(d.lastFailure.at, now)}). Si sigue sin contestar unos 6 minutos (seis intentos), la conversación queda con una persona.${espera}`,
     };
   }
   return {

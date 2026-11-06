@@ -80,11 +80,16 @@ export async function getAiCredentialSecret(
   };
 }
 
+const MENSAJES_ERROR = {
+  sin_token:
+    "No hay una llave guardada: pega la llave del proveedor para configurar la IA",
+  url_sin_llave:
+    "Cambiaste la dirección del proveedor: pega su llave para guardarla. La llave guardada solo viaja a la dirección con la que se guardó",
+} as const;
+
 export class AiCredentialError extends Error {
-  constructor(readonly code: "sin_token") {
-    super(
-      "No hay una llave guardada: pega la llave del proveedor para configurar la IA"
-    );
+  constructor(readonly code: keyof typeof MENSAJES_ERROR) {
+    super(MENSAJES_ERROR[code]);
     this.name = "AiCredentialError";
   }
 }
@@ -112,6 +117,13 @@ export async function saveAiCredential(input: {
   const now = new Date();
 
   if (input.token === undefined) {
+    // La llave guardada no se reapunta: cambiar la base URL sin pegar una
+    // llave mandaría la del dueño a otro servidor en la siguiente llamada.
+    const actual = await rowDe(input.organizationId);
+    if (!actual) throw new AiCredentialError("sin_token");
+    if (actual.baseUrl !== input.baseUrl) {
+      throw new AiCredentialError("url_sin_llave");
+    }
     const updated = await db
       .update(schema.aiCredentials)
       .set({

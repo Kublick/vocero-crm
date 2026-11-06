@@ -210,7 +210,7 @@
         "responses": {
           "2XX": { "description": "Recibido. No significa «ya contesté»." },
           "4XX": { "description": "No se reintenta: la conversación pasa a una persona. 429 sí se reintenta." },
-          "5XX": { "description": "Se reintenta (3 intentos en total, ~1 s y ~4 s); agotados, a una persona con motivo `error`." }
+          "5XX": { "description": "Se reintenta (6 intentos en total en unos 6 minutos: ~1 s, ~4 s, ~15 s, ~1 min y ~5 min; 3 rápidos en el Laboratorio); agotados, a una persona con motivo `error`." }
         }
       }
     },
