@@ -4,7 +4,7 @@
 
 **Created**: 2026-11-13
 
-**Status**: Especificada antes de escribir código. Sin implementar.
+**Status**: Especificada antes de escribir código. Implementada en el CRM; typecheck, lint, unitarias y build en verde; arnés E2E en verde con `TIENDA` apagada (7/7) y encendida (21/21). Falta la captura en oscuro y el recorrido con el cerebro (AC9).
 
 **Input**: el negocio de material eléctrico industrial (e-centinela, Mexicali)
 tiene su tienda en Shopify (`ecentinela.myshopify.com`, storefront Hydrogen

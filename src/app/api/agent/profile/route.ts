@@ -10,6 +10,7 @@ import {
   type ClaveHerramienta,
 } from "@/lib/agent-roles";
 import { agendaEnabled } from "@/server/agenda/flag";
+import { tiendaEnabled } from "@/server/tienda/flag";
 import { leerConfigDespacho, urlSaludCerebro } from "@/server/brains/config";
 import { getBrainHealth } from "@/server/bot/status";
 
@@ -35,10 +36,12 @@ export const GET = withAuth(async (session) => {
       greeting: p.greeting,
       // 034
       role: rolDe(p.role).clave,
-      tools: herramientasEfectivas(p.tools),
+      tools: herramientasEfectivas(p.tools, { tienda: tiendaEnabled() }),
     },
     // 034 — Sin la bandera, la pantalla no ofrece agendar ni reprogramar.
     agendaEnabled: agendaEnabled(),
+    // 067 — Ni inventario ni cotizar.
+    tiendaEnabled: tiendaEnabled(),
     aiConfigured: estado.activa,
     // Por qué no (sin configurar, llave rechazada, sin saldo): la pantalla
     // Agente lo dice con el enlace a Ajustes → IA.
@@ -78,7 +81,7 @@ export const PUT = withAuth(async (session, req: Request) => {
     .update(schema.agentProfile)
     .set({
       ...resto,
-      ...(tools ? { tools: herramientasEfectivas(tools) } : {}),
+      ...(tools ? { tools: herramientasEfectivas(tools, { tienda: tiendaEnabled() }) } : {}),
       updatedAt: new Date(),
     })
     .where(scoped(schema.agentProfile.organizationId, session.organizationId))

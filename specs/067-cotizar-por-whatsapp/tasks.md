@@ -4,16 +4,16 @@
 
 ## Este repo
 
-- [ ] T001 `src/server/tienda/flag.ts` (`parseTiendaFlag`, `tiendaEnabled`, `tiendaDisabledResponse`) + `TIENDA` en `src/lib/env.ts` y `.env.example`
-- [ ] T002 `por_agente` en `conversationNote` (`schema.ts`), `pnpm db:generate` → `0027`
-- [ ] T003 `agent-roles.ts`: claves `inventario` y `cotizar`, `tienda?: true`, opción `{ tienda }` en `herramientasEfectivas`
-- [ ] T004 Pasar `{ tienda: tiendaEnabled() }` en `src/server/bot/profile.ts` y `src/app/api/agent/profile/route.ts`; filtro en `agent-client.tsx`
-- [ ] T005 `crearNotaDelAgente` en `src/server/notas.ts`; `porAgente` en `NotaDto` y `aDto`
-- [ ] T006 `src/server/bot/notas.ts` + `src/app/api/bot/notes/route.ts` (bandera, herramienta, pausa, organización, validación)
-- [ ] T007 «Agente» en el pie de la nota en `message-thread.tsx`
-- [ ] T008 `tests/unit/cotizar-tienda.test.ts` y guardarraíl de `notas-internas.test.ts` con la excepción de `bot/notas.ts`
-- [ ] T009 `tests/e2e/us-notas-del-agente.md` + `scripts/e2e-notas-del-agente.mjs`
-- [ ] T010 `docs/openapi.json` (ruta y claves), enmienda en 050 D5 y en `contracts/sse.md`
+- [x] T001 `src/server/tienda/flag.ts` (`parseTiendaFlag`, `tiendaEnabled`, `tiendaDisabledResponse`) + `TIENDA` en `src/lib/env.ts` y `.env.example`
+- [x] T002 `por_agente` en `conversationNote` (`schema.ts`), `pnpm db:generate` → `0027`
+- [x] T003 `agent-roles.ts`: claves `inventario` y `cotizar`, `tienda?: true`, opción `{ tienda }` en `herramientasEfectivas`
+- [x] T004 Pasar `{ tienda: tiendaEnabled() }` en `src/server/bot/profile.ts` y `src/app/api/agent/profile/route.ts`; filtro en `agent-client.tsx`
+- [x] T005 `crearNotaDelAgente` en `src/server/notas.ts`; `porAgente` en `NotaDto` y `aDto`
+- [x] T006 `src/server/bot/notas.ts` + `src/app/api/bot/notes/route.ts` (bandera, herramienta, pausa, organización, validación)
+- [x] T007 «Agente» en el pie de la nota en `message-thread.tsx`
+- [x] T008 `tests/unit/cotizar-tienda.test.ts` y guardarraíl de `notas-internas.test.ts` con la excepción de `bot/notas.ts`
+- [x] T009 `tests/e2e/us-notas-del-agente.md` + `scripts/e2e-notas-del-agente.mjs`
+- [x] T010 `docs/openapi.json` (ruta y claves), enmienda en 050 D5 y en `contracts/sse.md`
 - [ ] T011 Gates con `TIENDA` apagada y encendida, capturas de la nota del agente en claro y oscuro
 - [ ] T012 AGENTS.md (mapa: bandera `TIENDA`), `specs/README.md`, bitácora y PR
 

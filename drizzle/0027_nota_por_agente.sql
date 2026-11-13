@@ -1,0 +1,1 @@
+ALTER TABLE "conversation_note" ADD COLUMN "por_agente" boolean DEFAULT false NOT NULL;

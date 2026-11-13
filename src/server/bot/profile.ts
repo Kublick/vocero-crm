@@ -1,6 +1,7 @@
 import type { schema } from "@/lib/db";
 import { renderKb } from "@/server/ai/prompts";
 import { herramientasEfectivas, rolDe } from "@/lib/agent-roles";
+import { tiendaEnabled } from "@/server/tienda/flag";
 
 type AgentProfile = typeof schema.agentProfile.$inferSelect;
 type KbEntry = typeof schema.kbEntry.$inferSelect;
@@ -33,7 +34,7 @@ export function serializeBotProfile(profile: AgentProfile, kb: KbEntry[], llm: B
       escalationRules: profile.escalationRules ?? null,
       greeting: profile.greeting ?? null,
       role: rolDe(profile.role).clave,
-      tools: herramientasEfectivas(profile.tools),
+      tools: herramientasEfectivas(profile.tools, { tienda: tiendaEnabled() }),
     },
     kb: renderKb(kb),
     resources: [] as { label: string; url: string }[],

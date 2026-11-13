@@ -17,6 +17,13 @@ imagen `ghcr.io/kevinrivm/vocero-crm:X.Y.Z`.
   Cuenta de WhatsApp, en la de mensajes y en el número. Sin esas variables
   todo queda como antes. Pasos del panel de Meta en
   [docs/embedded-signup.md](docs/embedded-signup.md). Sin migración.
+- **Inventario y cotizaciones por WhatsApp** (spec 067), detrás de la bandera
+  `TIENDA`. Con ella, la pantalla Agente ofrece «Consultar inventario» y
+  «Cotizar», el cerebro las recibe en su perfil y puede dejar el borrador de
+  una cotización como nota interna en el hilo (`POST /api/bot/notes`), que se
+  ve como «Nota interna · Agente». Una persona aprueba y manda el enlace. La
+  tienda (Shopify) la consulta el cerebro. Migración aditiva `0027`
+  (`conversation_note.por_agente`). Sin `TIENDA`, todo queda como antes.
 
 ### Arreglado
 

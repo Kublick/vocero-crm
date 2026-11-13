@@ -71,6 +71,7 @@ Banderas de despliegue (apagadas por defecto; su código viaja siempre en `main`
 | `AGENDA=on` | Motor de citas: pantalla Citas, Ajustes → Agenda, `/api/bookings`, `/api/calendar/*`, `/api/bot/availability` y `/api/bot/bookings` (`src/server/agenda/flag.ts`) |
 | `CHANNELS=whatsapp,instagram,messenger,tiktok` | Canales extra: webhooks `/api/webhooks/ig`, `/api/webhooks/messenger` y `/api/webhooks/tiktok`, Ajustes → Estado, Instagram, Messenger y TikTok, credenciales por canal, distintivo en la bandeja (`src/server/channels/enabled.ts`) |
 | `ATRIBUCION=on` | Guardado del `ctwa_clid`, reporte a la Conversions API de Meta, Ajustes → Anuncios y `/api/settings/capi` (`src/server/attribution/flag.ts`). El anuncio de origen se ve siempre, con o sin bandera |
+| `TIENDA=on` | 067 — Herramientas `inventario` y `cotizar` en la pantalla Agente y en `GET /api/bot/profile`, y `POST /api/bot/notes` (`src/server/tienda/flag.ts`). La tienda la consulta el cerebro; el CRM no guarda credenciales de ella |
 
 Apagada, cada superficie responde 404 (no 403). El despliegue en producción está en el README («Instalación»: Rutas A y B, y «Otras plataformas» con `render.yaml`, `fly.toml` y `railway.toml`) y en `INSTALL-IA.md`; no se repite aquí.
 
@@ -167,6 +168,7 @@ La ráfaga del despacho es lo posterior al último saliente más lo que el despa
 | `POST /api/bot/llm/{ruta}` | 036 — Proxy compatible con OpenAI hacia el proveedor de Ajustes → IA; cuerpo y respuesta tal cual. 402 `sin_credencial` sin IA, 504 `proveedor_sin_respuesta` si no contesta |
 | `PUT /api/bot/ficha` | Guardar lo que el bot descubre del lead (claves libres) |
 | `POST /api/bot/stage` | 038 — Mover al lead a una etapa abierta siguiente (`lead.nextStages` del contexto), con la herramienta `etapa` encendida. 409 `etapa_no_permitida`, `herramienta_apagada`, `ai_paused` |
+| `POST /api/bot/notes` | 067 — Con TIENDA: dejar una nota interna en el hilo (borrador de cotización), solo escritura, con `cotizar` encendida. 409 `herramienta_apagada`, `ai_paused` |
 | `POST /api/bot/handoff` | Devolver la conversación a un humano |
 | `POST /api/bot/typing` | Marcar leído y «escribiendo…» |
 | `GET /api/bot/media/{mediaId}` | Descargar un adjunto entrante sin tocar Meta |

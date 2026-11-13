@@ -1,4 +1,4 @@
-import { readdirSync, readFileSync, statSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { intercalarNotas, puedeBorrarNota } from "@/lib/notas";
@@ -63,8 +63,12 @@ describe("guardarraíl: las notas nunca llegan al cliente ni al cerebro", () => 
     return out;
   }
   const raiz = join(process.cwd(), "src", "server");
+  // 067 — La única excepción: el cerebro ESCRIBE notas por `bot/notas.ts`.
+  const escrituraDelCerebro = join(raiz, "bot", "notas.ts");
   const vigilados = [
-    ...["dispatch", "brains", "bot", "analytics", "lab"].flatMap((d) => archivos(join(raiz, d))),
+    ...["dispatch", "brains", "bot", "analytics", "lab"]
+      .flatMap((d) => archivos(join(raiz, d)))
+      .filter((f) => f !== escrituraDelCerebro),
     join(raiz, "inbox", "send.ts"),
     join(raiz, "inbox", "ingest.ts"),
     join(raiz, "inbox", "window.ts"),
@@ -76,5 +80,15 @@ describe("guardarraíl: las notas nunca llegan al cliente ni al cerebro", () => 
       /conversationNote|conversation_note|server\/notas/.test(readFileSync(f, "utf8"))
     );
     expect(culpables).toEqual([]);
+  });
+
+  it("067 — el cerebro escribe notas pero no las lee", () => {
+    const fuente = readFileSync(escrituraDelCerebro, "utf8");
+    expect(fuente).toMatch(/crearNotaDelAgente/);
+    // Delega la escritura y nunca consulta la tabla ni la lista.
+    expect(fuente).not.toMatch(/listarNotas|conversationNote|conversation_note/);
+    const ruta = join(process.cwd(), "src", "app", "api", "bot", "notes", "route.ts");
+    expect(existsSync(ruta)).toBe(true);
+    expect(readFileSync(ruta, "utf8")).not.toMatch(/export (async )?function GET|export const GET/);
   });
 });
