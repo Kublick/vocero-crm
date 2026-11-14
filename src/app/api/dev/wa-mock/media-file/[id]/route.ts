@@ -1,6 +1,7 @@
 import { mockGuard } from "@/lib/dev-guard";
 import { empaquetarOgg } from "@/lib/audio/webm-ogg";
 import { pngDePrueba } from "@/server/dev/png-de-prueba";
+import { getWaMockState } from "@/server/dev/wa-mock-state";
 
 /**
  * Binario de prueba del wa-mock (media proxy del bot). La metadata del mock de
@@ -22,6 +23,13 @@ export async function GET(
   const guard = mockGuard();
   if (guard) return guard;
   const { id } = await ctx.params;
+
+  // 067 — Lo que se subió de verdad vuelve tal cual (la nota de voz del chat
+  // de cliente de pruebas).
+  const subida = getWaMockState().medias[id];
+  if (subida) {
+    return new Response(new Uint8Array(subida.bytes), { headers: { "content-type": subida.type } });
+  }
 
   if (id.startsWith("creativo")) {
     if (id === "creativo-enorme") {
