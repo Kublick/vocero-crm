@@ -31,7 +31,7 @@ primera etapa; el historial queda).
    - una nota «Nota interna · Agente» con el formato de la spec: la línea sin
      existencia marcada «NO va en el enlace», y el enlace solo con la que
      tiene existencia;
-   - la ficha con una entrada en `cotizaciones`;
+   - la ficha con `ultima_cotizacion` (una línea, sin enlace) y `requiere_cfdi`;
    - el lead en «Cotización pendiente»;
    - la conversación en handoff.
 6. Abre el enlace de la nota. Esperado: el checkout de Shopify con la línea

@@ -4,7 +4,7 @@
 
 **Created**: 2026-11-13
 
-**Status**: Especificada antes de escribir código. Implementada en el CRM; typecheck, lint, unitarias y build en verde; arnés E2E en verde con `TIENDA` apagada (7/7) y encendida (21/21). Falta la captura en oscuro y el recorrido con el cerebro (AC9).
+**Status**: Especificada antes de escribir código. Implementada en el CRM; typecheck, lint, unitarias y build en verde; arnés E2E en verde con `TIENDA` apagada (7/7) y encendida (21/21). AC9 por texto verde en local con el fork de Nea (catálogo real, chat de cliente contra el wa-mock); falta por audio, por la línea de pruebas real y la captura en oscuro.
 
 **Input**: el negocio de material eléctrico industrial (e-centinela, Mexicali)
 tiene su tienda en Shopify (`ecentinela.myshopify.com`, storefront Hydrogen
@@ -76,12 +76,19 @@ borrarla (no tiene autor).
 
 **D7 — La cotización se registra dos veces** (Q7):
 
-- **Nota interna** en el hilo: lo que la persona lee para aprobar.
-- **`ficha.cotizaciones`**, una lista en la ficha del contacto (por la ruta
-  existente `PUT /api/bot/ficha`): historial estructurado que el cerebro
-  vuelve a leer en turnos siguientes. Una lista y no un campo: el CRM tiene un
-  trato por contacto (`lead_contact_uq`), y la segunda cotización de un
-  cliente que vuelve no debe pisar la primera.
+- **Nota interna** en el hilo: lo que la persona lee para aprobar. Una por
+  cotización: es el historial, y la segunda cotización de un cliente que
+  vuelve no pisa la primera aunque el CRM tenga un trato por contacto
+  (`lead_contact_uq`).
+- **En la ficha**, `ultima_cotizacion` (una línea, sin enlace) y
+  `requiere_cfdi`, por la ruta existente `PUT /api/bot/ficha`: lo que el
+  cerebro vuelve a leer en turnos siguientes.
+
+  *Corregido al implementar (2026-11-13):* el diseño original guardaba una
+  lista `ficha.cotizaciones`. La ficha solo guarda escalares de hasta 500
+  caracteres y tira listas y objetos sin error (`normalizeFicha`), así que la
+  lista nunca se guardaba. Se respetó esa regla de la ficha en vez de
+  cambiarla.
 
 **D8 — Dos etapas nuevas en el pipeline** (Q12): «Cotización pendiente» y
 «Cotización enviada», en ese orden y abiertas. Son datos (se crean con el
@@ -146,71 +153,56 @@ porque define lo que la persona verá en el CRM.
 | `STT_PROVIDER` | `gemini` (por defecto, por el proxy `/api/bot/llm`) o `modulate` |
 | `MODULATE_API_KEY` | Solo con `STT_PROVIDER=modulate` |
 
-**`inventario`** — búsqueda en la Storefront API (`search` / `products`), con
-`availableForSale`, `quantityAvailable`, precio y la etiqueta «Precio a
-cotizar» de la tienda. Respeta D12 y D13.
+Implementado en el fork (`Kublick/nea-agent`, rama `feat/inventario`:
+`app/tienda.py` y `app/tools.py`).
+
+**Reglas de la tienda** (iguales a las del storefront):
+
+- Se puede comprar = `availableForSale`. Con 0 piezas y la venta abierta
+  (`currentlyNotInStock`), es **sobre pedido**: se vende, pero no hay en
+  almacén.
+- «Precio a cotizar» = precio de 0, 9999 o 99999 (`ecentinela/lib/money.ts`).
+- La tienda cobra en **USD**; el sitio muestra MXN y otras solo como
+  aproximación.
+
+**`inventario`** (`buscar_inventario`) — `search` de la Storefront API, como
+mucho 3 productos. El número exacto de piezas solo viaja al modelo si el
+cliente dio una cantidad (D12), y el precio a cotizar viaja sin número.
 
 **`cotizar`**, en este orden:
 
-1. Lista confirmada por el cliente (D13) y la respuesta de CFDI (D14).
-2. Vuelve a consultar existencias en ese momento: la lista se armó turnos
-   atrás.
-3. Arma el enlace con lo que tiene existencia (D11).
-4. `PUT /api/bot/ficha` agregando una entrada a `cotizaciones` (lee la ficha
-   actual del contexto y manda la lista completa; la ficha mezcla por clave).
-5. `POST /api/bot/notes` con el borrador (formato abajo).
-6. `POST /api/bot/stage` a «Cotización pendiente», si `etapa` está encendida.
-7. `POST /api/bot/handoff` con `reason: "cotizacion_pendiente"`.
-8. Le dice al cliente que una persona confirma su cotización en breve. No
-   manda el enlace.
+1. Exige `confirmado: true` (D13) y que la factura se haya hablado en lo
+   último de la conversación (D14): en vivo, el modelo se saltaba la
+   pregunta y llenaba el campo a ojo.
+2. Recibe cada línea como **número de parte o nombre** tal cual lo confirmó
+   el cliente, no un id: el cerebro no guarda los resultados de herramientas
+   entre turnos. Lo resuelve contra la tienda en ese momento; si es ambiguo
+   o no existe, regresa al modelo para que pregunte, sin escribir nada.
+3. Arma el enlace con lo que se compra ya (D11). Fuera, con su motivo:
+   `precio_a_cotizar`, `sin_existencia`, `sobre_pedido`.
+4. `POST /api/bot/notes` con el borrador. Va primero porque es el candado:
+   con `cotizar` apagada o la IA en pausa, 409 y no se escribe nada más.
+5. `PUT /api/bot/ficha` con `ultima_cotizacion` y `requiere_cfdi` (D7).
+6. `POST /api/bot/stage` a «Cotización pendiente», si esa etapa está entre
+   las siguientes.
+7. Handoff después de la despedida, con `reason: "modelo"`: el catálogo de
+   motivos del handoff es cerrado (`cliente`, `modelo`, `error`, `ventana`,
+   `hostilidad`). Lo que dice que es una cotización son la nota y la etapa.
+8. El enlace y el total **nunca** vuelven al modelo: le dice al cliente que
+   una persona confirma su cotización en breve.
 
-**Entrada de `ficha.cotizaciones`**:
-
-```json
-{
-  "id": "cot_<nanoid>",
-  "creada": "2026-11-13T18:04:00Z",
-  "moneda": "MXN",
-  "lineas": [
-    {
-      "varianteId": "gid://shopify/ProductVariant/123",
-      "sku": "A26-30-10",
-      "titulo": "Contactor ABB A26-30-10",
-      "cantidad": 12,
-      "precioUnitario": "1840.00",
-      "enEnlace": true
-    },
-    {
-      "varianteId": "gid://shopify/ProductVariant/456",
-      "sku": "TX-500",
-      "titulo": "Transformador 500 VA",
-      "cantidad": 1,
-      "precioUnitario": null,
-      "enEnlace": false,
-      "motivo": "precio_a_cotizar"
-    }
-  ],
-  "totalEnlace": "22080.00",
-  "url": "https://ecentinela.myshopify.com/cart/123:12",
-  "cfdi": true,
-  "origen": "audio"
-}
-```
-
-`motivo` ∈ `sin_existencia` | `precio_a_cotizar`. `origen` ∈ `texto` |
-`audio`. Montos como cadena decimal, como `MoneyV2.amount` de Shopify.
-
-**Texto de la nota** (lo que la persona lee):
+**Texto de la nota** (lo que la persona lee; ejemplo real del catálogo):
 
 ```
-Cotización pendiente de aprobar (cot_…)
-• 12 × Contactor ABB A26-30-10 — $1,840.00 c/u — en el enlace
-• 1 × Transformador 500 VA — precio a cotizar — NO va en el enlace
-Total del enlace: $22,080.00 MXN, IVA incluido
-Enlace: https://…/cart/123:12
+Cotización pendiente de aprobar (cot_638dbbf32d55)
+• 3 × C3SS7-10B-20 selector 3 posiciones … [1sfa619216r1026] — $11.17 USD c/u — en el enlace
+• 2 × Botón paro de emergencia con caja, blanco, 1NC + 1NA [fak-r-kc11-i] — sobre pedido (sin piezas en almacén) — NO va en el enlace
+Total del enlace: $33.51 USD, IVA incluido (precio vigente al momento del pago)
+Enlace: https://ecentinela.myshopify.com/cart/67945661857894:3
 Requiere CFDI: sí
-Pedido por audio: «necesito doce contactores ABB A26 30 10 y un transformador de 500»
 ```
+
+Con un pedido por nota de voz se agrega `Pedido por audio: «…»`.
 
 **Notas de voz con Modulate**: `POST https://platform.modulate.ai/api/velma-2-stt-batch`
 (multipart, header `X-API-Key`), el `.ogg` tal cual, `language=es`, y
