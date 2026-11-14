@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { apiError, parseBody } from "@/lib/api";
+import { isCurrency } from "@/lib/money";
 import { requireBotKey, resolveInstanceOrg } from "@/server/bot/auth";
 import { moverEtapaPorElCerebro } from "@/server/bot/stage";
 import { publish } from "@/server/events/bus";
@@ -10,6 +11,11 @@ const bodySchema = z.object({
   conversationId: z.string().min(1),
   /** Nombre de la etapa (como viene en `lead.nextStages` del contexto) o su id. */
   stage: z.string().min(1).max(200),
+  /** 067 — Monto del trato en centavos, con su moneda. Solo con `TIENDA` y `cotizar`. */
+  amountCents: z.number().int().min(0).max(1_000_000_000_00).optional(),
+  currency: z.string().refine(isCurrency, "moneda no soportada").optional(),
+}).refine((b) => (b.amountCents === undefined) === (b.currency === undefined), {
+  message: "amountCents y currency van juntos",
 });
 
 /**
@@ -33,10 +39,12 @@ export async function POST(req: Request) {
   const body = await parseBody(req, bodySchema);
   if (!body.ok) return body.response;
 
-  const res = await moverEtapaPorElCerebro({ organizationId, ...body.data });
+  const { amountCents, currency, ...resto } = body.data;
+  const monto = amountCents !== undefined && currency ? { amountCents, currency } : undefined;
+  const res = await moverEtapaPorElCerebro({ organizationId, ...resto, monto });
   if (!res.ok) return apiError(res.status, res.code, res.message);
 
-  if (res.changed) {
+  if (res.changed || monto) {
     // Como cuando el dueño arrastra la tarjeta: la bandeja y el Pipeline lo
     // ven en vivo.
     publish(organizationId, {

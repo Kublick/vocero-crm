@@ -96,8 +96,24 @@ administrador de etapas de la pantalla Pipeline), no código. El cerebro mueve a
 `etapa` al dejar el borrador. Lo demás lo mueve la persona. Ganar o perder
 sigue siendo de una persona (038; Q6).
 
-**D9 — El monto del trato lo captura la persona** (Q8). Ninguna ruta del bot
-escribe `amount_cents` y esta spec no agrega una.
+**D9 — El monto del trato lo captura el agente con la cotización**
+(enmienda del 2026-11-13; antes lo capturaba la persona, Q8). Es el total de
+lo que se puede comprar ya (el del enlace): lo sobre pedido y lo «a cotizar»
+no suman. Viaja en el mismo `POST /api/bot/stage` que mueve a «Cotización
+pendiente» (`amountCents` + `currency`), y también cuando el lead ya está ahí:
+una segunda cotización actualiza el monto. Solo con `TIENDA` y `cotizar`
+encendida (si no, 409 `herramienta_apagada`). La persona lo corrige en la
+tarjeta si negocia otro precio.
+
+El tablero solo suma la moneda del negocio (Ajustes → Marca): como la tienda
+cobra en USD, e-centinela debe tener USD ahí, o los montos se ven pero no
+entran al total de la columna.
+
+**D9b — El agente mueve la tarjeta por su cuenta** (2026-11-13). En vivo el
+modelo nunca llamaba `move_stage`. Ahora lo hace el código, por nombre de
+etapa y solo hacia adelante: «Consulta de producto» al buscar en la tienda y
+«Cotización pendiente» al cotizar. Sin esas etapas en el pipeline, no se
+mueve nada.
 
 **D10 — Precios en la moneda de la tienda, IVA incluido** (Q13). El checkout
 de Shopify cobra siempre la moneda de la tienda; las otras monedas del sitio
@@ -252,7 +268,7 @@ menos de 1000 términos. La transcripción viene en `text`.
 - **Ganar el trato al pagarse el pedido** (webhook `orders/paid`): choca con
   038 (ganar o perder es de una persona). Se revisa cuando cerrar a mano canse
   (Q6).
-- **Ruta del bot para el monto**: lo captura la persona al aprobar (D9).
+- **Una ruta aparte para el monto**: viaja en `POST /api/bot/stage` (D9).
 - **Botón «Aprobar y enviar»**: el handoff basta para empezar (Q8).
 - **El cerebro lee notas**: solo escribe (D5).
 - **Transcripción visible en la Bandeja** (D15).

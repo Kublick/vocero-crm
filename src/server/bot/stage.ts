@@ -3,6 +3,7 @@ import { getDb, schema } from "@/lib/db";
 import { scoped } from "@/lib/db/tenant";
 import { herramientasEfectivas } from "@/lib/agent-roles";
 import { moveLeadToStage } from "@/server/leads/stage-history";
+import { tiendaEnabled } from "@/server/tienda/flag";
 
 /**
  * 038 — El cerebro mueve la etapa del lead (`POST /api/bot/stage`).
@@ -79,6 +80,12 @@ export async function moverEtapaPorElCerebro(input: {
   organizationId: string;
   conversationId: string;
   stage: string;
+  /**
+   * 067 — El monto del trato, con la cotización: lo que se puede comprar ya.
+   * Solo con la bandera `TIENDA` y la herramienta `cotizar` encendida; sin
+   * ellas, el monto sigue siendo de una persona (D9).
+   */
+  monto?: { amountCents: number; currency: string };
 }): Promise<ResultadoEtapa> {
   const db = getDb();
   const { organizationId } = input;
@@ -119,6 +126,17 @@ export async function moverEtapaPorElCerebro(input: {
     .from(schema.agentProfile)
     .where(scoped(schema.agentProfile.organizationId, organizationId))
     .limit(1);
+  if (
+    input.monto &&
+    !(tiendaEnabled() && herramientasEfectivas(perfiles[0]?.tools, { tienda: true }).includes("cotizar"))
+  ) {
+    return {
+      ok: false,
+      status: 409,
+      code: "herramienta_apagada",
+      message: "Capturar el monto exige la tienda y la herramienta «Cotizar» encendidas",
+    };
+  }
   // Sin perfil, como sin configurar: todas encendidas.
   if (!herramientasEfectivas(perfiles[0]?.tools).includes("etapa")) {
     return {
@@ -180,7 +198,9 @@ export async function moverEtapaPorElCerebro(input: {
     leadId: lead.id,
     toStageId: destino.id,
     source: "bot",
-    extra: { lastActivityAt: new Date() },
+    // Con monto, en el mismo update que el movimiento (como el PATCH del
+    // dueño): también si ya estaba en la etapa, para una segunda cotización.
+    extra: { lastActivityAt: new Date(), ...(input.monto ?? {}) },
   });
   if (!res.ok) {
     // Solo si el lead o la etapa desaparecieron entre la lectura y el

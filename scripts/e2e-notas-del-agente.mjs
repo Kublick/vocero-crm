@@ -145,7 +145,18 @@ try {
     await apiA("/api/agent/profile", { method: "PUT", data: { tools: ["ficha", "etapa", "inventario"] } });
     r = await bot("/api/bot/notes", { conversationId: conv.id, texto: "x" });
     ok("con cotizar apagada → 409 herramienta_apagada", r.status() === 409 && (await r.json()).error?.code === "herramienta_apagada");
+    // 067 — Monto del trato con la cotización: misma etapa, solo el monto.
+    const etapaActual = (await (await ctxA.request.fetch(`${BASE}/api/bot/context?conversationId=${conv.id}`, { headers: { "x-api-key": KEY } })).json()).lead?.stageName;
+    r = await apiA("/api/agent/profile", { method: "PUT", data: { tools: ["ficha", "etapa", "inventario"] } });
+    r = await bot("/api/bot/stage", { conversationId: conv.id, stage: etapaActual, amountCents: 3351, currency: "USD" });
+    ok("monto con cotizar apagada → 409 herramienta_apagada", r.status() === 409 && (await r.json()).error?.code === "herramienta_apagada");
     await apiA("/api/agent/profile", { method: "PUT", data: { tools: ["ficha", "etapa", "inventario", "cotizar"] } });
+    r = await bot("/api/bot/stage", { conversationId: conv.id, stage: etapaActual, amountCents: 3351 });
+    ok("monto sin moneda → 422", r.status() === 422, String(r.status()));
+    r = await bot("/api/bot/stage", { conversationId: conv.id, stage: etapaActual, amountCents: 3351, currency: "USD" });
+    ok("monto con la etapa actual → 200", r.status() === 200, String(r.status()));
+    const tarjeta = ((await (await apiA("/api/pipeline/board")).json()).leads ?? []).find((l) => l.conversationId === conv.id);
+    ok("la tarjeta trae el monto y la moneda", tarjeta?.amountCents === 3351 && tarjeta?.currency === "USD", JSON.stringify(tarjeta && { a: tarjeta.amountCents, c: tarjeta.currency }));
 
     console.log("\n== AC5 · IA pausada ==");
     r = await bot("/api/bot/handoff", { conversationId: conv.id, reason: "cotizacion_pendiente" });
