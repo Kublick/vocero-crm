@@ -51,10 +51,20 @@ agente como las demás. El CRM no puede imponer `inventario` (no pasa por él):
 lo respeta el cerebro leyendo `tools`. `cotizar` sí se impone en la ruta de
 notas (D5).
 
-**D4 — Una persona aprueba TODA cotización** (Q3). El cerebro nunca le manda
-al cliente un enlace de compra. Arma un borrador, lo deja en el CRM y escala.
-La persona revisa, manda el enlace desde la Bandeja, captura el monto del
-trato y sigue la conversación (Q8, Q9).
+**D4 — Compra directa hasta $500 USD; lo demás lo aprueba una persona**
+(enmienda del 2026-11-13; antes una persona aprobaba TODA cotización, Q3).
+
+- **Compra directa**: si TODO lo cotizado se compra ya (nada sobre pedido,
+  sin existencia ni a cotizar) y el total no pasa de `COMPRA_DIRECTA_MAX`
+  (500, en la moneda de la tienda), el cerebro manda el enlace él mismo. La
+  nota dice «enviada al cliente por el agente, compra directa», la tarjeta va
+  a «Cotización enviada» con el monto y la IA sigue activa.
+- **Aprobación**: una orden mixta, algo sobre pedido o a cotizar, o un total
+  mayor, se queda como borrador para una persona: nota, «Cotización
+  pendiente» y handoff. La persona revisa, manda el enlace desde la Bandeja y
+  sigue la conversación (Q8, Q9).
+- El enlace y el total los pega el código al final del mensaje, nunca el
+  modelo: un enlace mal copiado es una compra que no ocurre.
 
 **D5 — El cerebro puede dejar una nota interna: `POST /api/bot/notes`.**
 Enmienda la D5 de la spec 050 («no viaja por `/api/bot/*`»), solo en
@@ -166,6 +176,7 @@ porque define lo que la persona verá en el CRM.
 | `SHOPIFY_STORE_DOMAIN` | `ecentinela.myshopify.com` |
 | `SHOPIFY_STOREFRONT_TOKEN` | El token privado de Storefront del storefront (Q18: se reutiliza; rotarlo rompe los dos). Necesita el scope `unauthenticated_read_product_inventory` |
 | `CART_LINK_ORIGIN` | Origen del enlace de carrito: `https://ecentinela.myshopify.com` hasta el lanzamiento, `https://e-centinela.com` después (Q19) |
+| `COMPRA_DIRECTA_MAX` | Tope de la compra directa en la moneda de la tienda (D4). `500`; `0` la apaga |
 | `STT_PROVIDER` | `gemini` (por defecto, por el proxy `/api/bot/llm`) o `modulate` |
 | `MODULATE_API_KEY` | Solo con `STT_PROVIDER=modulate` |
 
@@ -204,8 +215,10 @@ cliente dio una cantidad (D12), y el precio a cotizar viaja sin número.
 7. Handoff después de la despedida, con `reason: "modelo"`: el catálogo de
    motivos del handoff es cerrado (`cliente`, `modelo`, `error`, `ventana`,
    `hostilidad`). Lo que dice que es una cotización son la nota y la etapa.
-8. El enlace y el total **nunca** vuelven al modelo: le dice al cliente que
-   una persona confirma su cotización en breve.
+8. El enlace y el total **nunca** vuelven al modelo. Con compra directa
+   (D4), el código los agrega al final del mensaje, la etapa es «Cotización
+   enviada» y no hay handoff. Si no, le dice al cliente que una persona
+   confirma su cotización en breve.
 
 **Texto de la nota** (lo que la persona lee; ejemplo real del catálogo):
 
