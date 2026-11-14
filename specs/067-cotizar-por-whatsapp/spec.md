@@ -177,8 +177,9 @@ porque define lo que la persona verá en el CRM.
 | `SHOPIFY_STOREFRONT_TOKEN` | El token privado de Storefront del storefront (Q18: se reutiliza; rotarlo rompe los dos). Necesita el scope `unauthenticated_read_product_inventory` |
 | `CART_LINK_ORIGIN` | Origen del enlace de carrito: `https://ecentinela.myshopify.com` hasta el lanzamiento, `https://e-centinela.com` después (Q19) |
 | `COMPRA_DIRECTA_MAX` | Tope de la compra directa en la moneda de la tienda (D4). `500`; `0` la apaga |
-| `STT_PROVIDER` | `gemini` (por defecto, por el proxy `/api/bot/llm`) o `modulate` |
+| `STT_PROVIDER` | Vacío = el modelo que oye del LLM (`LLM_TRANSCRIBE_MODEL`; pensando por el CRM, uno de Google, que **no existe con una llave de OpenAI**). `modulate` = Velma de Modulate (`app/stt.py`) |
 | `MODULATE_API_KEY` | Solo con `STT_PROVIDER=modulate` |
+| `MODULATE_TERMINOS` | Vocabulario propio, separado por comas: marcas y categorías de la tienda (Q26). Ejemplo en `.env.example` del fork |
 
 Implementado en el fork (`Kublick/nea-agent`, rama `feat/inventario`:
 `app/tienda.py` y `app/tools.py`).
