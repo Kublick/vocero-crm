@@ -122,6 +122,12 @@ type WaMockState = {
   registrations: Record<string, string>;
   /** 066 — Los `code` que ya se canjearon (Meta los acepta una vez). */
   usedCodes: string[];
+  /**
+   * 067 — Los bytes de lo subido, por id, para servirlos de vuelta como
+   * adjunto ENTRANTE: así el chat de cliente de pruebas puede mandar una nota
+   * de voz de verdad y el cerebro la transcribe sin WhatsApp real.
+   */
+  medias: Record<string, { bytes: Uint8Array; type: string }>;
   counter: number;
 };
 
@@ -139,6 +145,7 @@ function freshState(): WaMockState {
     wabaNumbers: {},
     registrations: {},
     usedCodes: [],
+    medias: {},
     // Arranca en la hora, no en 0: los ids del mock (`wamid.mock.N`) no
     // chocan con los de un arranque anterior sobre la misma base, que el CRM
     // descartaría como duplicados (idempotencia por wa_message_id).
@@ -157,6 +164,7 @@ export function getWaMockState(): WaMockState {
   globalForMock.__waMockState.wabaNumbers ??= {};
   globalForMock.__waMockState.registrations ??= {};
   globalForMock.__waMockState.usedCodes ??= [];
+  globalForMock.__waMockState.medias ??= {};
   return globalForMock.__waMockState;
 }
 

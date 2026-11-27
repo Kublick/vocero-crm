@@ -211,7 +211,8 @@ function NotaInterna({ nota, onBorrar }: { nota: NotaDto; onBorrar?: (n: NotaDto
         <Lock className="h-3 w-3" strokeWidth={2} aria-hidden />
         <span>Nota interna</span>
         <span className="font-normal opacity-80">
-          · {nota.autor?.nombre ?? "Alguien del equipo"} · {bubbleTime(nota.createdAt)}
+          · {nota.porAgente ? "Agente" : (nota.autor?.nombre ?? "Alguien del equipo")} ·{" "}
+          {bubbleTime(nota.createdAt)}
         </span>
         {nota.puedeBorrar && onBorrar && (
           <button

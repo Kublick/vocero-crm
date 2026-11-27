@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cliente de prueba</title>
+<style>
+  :root { --bg:#efeae2; --me:#d9fdd3; --them:#fff; --ink:#111b21; --muted:#667781; --bar:#075e54; --rec:#d93025; }
+  * { box-sizing: border-box; }
+  body { margin:0; font: 15px/1.4 system-ui, sans-serif; color:var(--ink); background:#d1d7db; display:flex; justify-content:center; }
+  main { width:100%; max-width:480px; height:100vh; display:flex; flex-direction:column; background:var(--bg); }
+  header { background:var(--bar); color:#fff; padding:10px 16px; display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+  header strong { flex:1; }
+  header input { width:9.5em; padding:4px 6px; border:0; border-radius:4px; font:inherit; font-size:13px; }
+  header button { background:transparent; color:#fff; border:1px solid #fff8; border-radius:4px; padding:4px 8px; cursor:pointer; font-size:13px; }
+  #hilo { flex:1; overflow-y:auto; padding:16px; display:flex; flex-direction:column; gap:6px; }
+  .m { max-width:80%; padding:6px 10px 4px; border-radius:8px; white-space:pre-wrap; word-wrap:break-word; box-shadow:0 1px 1px #0001; }
+  .m small { display:block; text-align:right; color:var(--muted); font-size:11px; }
+  .yo { align-self:flex-end; background:var(--me); }
+  .nea { align-self:flex-start; background:var(--them); }
+  .aviso { align-self:center; color:var(--muted); font-size:12px; }
+  form { display:flex; gap:8px; padding:8px; background:#f0f2f5; align-items:center; }
+  form input[type=text] { flex:1; padding:10px 12px; border:0; border-radius:20px; font:inherit; min-width:0; }
+  form button, label.boton { border:0; background:var(--bar); color:#fff; border-radius:20px; padding:10px 14px; font:inherit; cursor:pointer; white-space:nowrap; }
+  #grabar.grabando { background:var(--rec); }
+  label.boton input { display:none; }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <strong>Cliente de prueba → Nea</strong>
+    <input id="nombre" value="Cliente de prueba" aria-label="Nombre del cliente">
+    <input id="telefono" value="5216861112233" aria-label="Teléfono del cliente">
+    <button id="reiniciar" type="button" title="IA reactivada, el agente olvida la conversación y el lead vuelve a la primera etapa">Reiniciar</button>
+    <button id="nuevo" type="button" title="Otro teléfono: una conversación limpia">Nuevo cliente</button>
+  </header>
+  <div id="hilo" aria-live="polite"><div class="aviso">Escribe o manda una nota de voz como cliente. Nada sale a WhatsApp real.</div></div>
+  <form id="f">
+    <input id="t" type="text" autocomplete="off" placeholder="Escribe un mensaje" aria-label="Mensaje">
+    <button id="grabar" type="button" aria-label="Grabar nota de voz">🎤</button>
+    <label class="boton" title="Mandar un archivo de audio como nota de voz">📎<input id="archivo" type="file" accept="audio/*" aria-label="Archivo de audio"></label>
+    <button>Enviar</button>
+  </form>
+</main>
+<script>
+  const hilo = document.getElementById("hilo");
+  const tel = () => document.getElementById("telefono").value.trim();
+  const nombre = () => document.getElementById("nombre").value;
+  let desde = 0;
+  const hora = (iso) => new Date(iso).toLocaleTimeString("es-MX", { hour: "2-digit", minute: "2-digit" });
+  function burbuja(clase, texto, at) {
+    const d = document.createElement("div");
+    d.className = "m " + clase;
+    d.textContent = texto;
+    const s = document.createElement("small");
+    s.textContent = hora(at || new Date().toISOString());
+    d.append(s);
+    hilo.append(d);
+    hilo.scrollTop = hilo.scrollHeight;
+  }
+  function aviso(texto) {
+    const d = document.createElement("div");
+    d.className = "aviso";
+    d.textContent = texto;
+    hilo.append(d);
+    hilo.scrollTop = hilo.scrollHeight;
+  }
+  async function marcarLeido() {
+    const r = await fetch(`/api/respuestas?telefono=${tel()}&desde=0`).then((r) => r.json());
+    desde = Math.max(0, ...r.respuestas.map((x) => x.n));
+  }
+  async function sondear() {
+    try {
+      const r = await fetch(`/api/respuestas?telefono=${tel()}&desde=${desde}`).then((r) => r.json());
+      for (const x of r.respuestas) { burbuja("nea", x.texto, x.at); desde = Math.max(desde, x.n); }
+    } catch {}
+    setTimeout(sondear, 1000);
+  }
+  async function mandarAudio(blob, etiqueta) {
+    burbuja("yo", `🎤 ${etiqueta}`);
+    const r = await fetch(`/api/audio?telefono=${encodeURIComponent(tel())}&nombre=${encodeURIComponent(nombre())}`, { method: "POST", body: blob });
+    if (!r.ok) aviso(`No se pudo mandar el audio: ${(await r.json().catch(() => ({}))).error ?? r.status}`);
+  }
+  document.getElementById("f").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const t = document.getElementById("t");
+    const texto = t.value.trim();
+    if (!texto) return;
+    t.value = "";
+    burbuja("yo", texto);
+    const r = await fetch("/api/enviar", { method: "POST", headers: { "content-type": "application/json" },
+      body: JSON.stringify({ telefono: tel(), nombre: nombre(), texto }) });
+    if (!r.ok) aviso(`No se pudo enviar (${r.status})`);
+  });
+  // Grabar con el micrófono: un toque empieza, otro manda.
+  let grabadora = null, trozos = [], inicio = 0;
+  const boton = document.getElementById("grabar");
+  boton.addEventListener("click", async () => {
+    if (grabadora) { grabadora.stop(); return; }
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      grabadora = new MediaRecorder(stream);
+      trozos = []; inicio = Date.now();
+      grabadora.ondataavailable = (e) => trozos.push(e.data);
+      grabadora.onstop = () => {
+        stream.getTracks().forEach((x) => x.stop());
+        const segundos = Math.round((Date.now() - inicio) / 1000);
+        const blob = new Blob(trozos, { type: grabadora.mimeType });
+        grabadora = null;
+        boton.classList.remove("grabando"); boton.textContent = "🎤";
+        mandarAudio(blob, `nota de voz (${segundos} s)`);
+      };
+      grabadora.start();
+      boton.classList.add("grabando"); boton.textContent = "■ enviar";
+    } catch (err) {
+      aviso(`Sin micrófono: ${err.message}. Usa 📎 para mandar un archivo de audio.`);
+    }
+  });
+  document.getElementById("archivo").addEventListener("change", (e) => {
+    const f = e.target.files?.[0];
+    if (f) mandarAudio(f, f.name);
+    e.target.value = "";
+  });
+  document.getElementById("reiniciar").addEventListener("click", async () => {
+    const r = await fetch("/api/reiniciar", { method: "POST", headers: { "content-type": "application/json" },
+      body: JSON.stringify({ telefono: tel() }) }).then((r) => r.json());
+    aviso(r.reiniciada ? "Conversación reiniciada: IA activa y el agente olvida lo anterior" : "Aún no hay conversación con este teléfono");
+  });
+  document.getElementById("nuevo").addEventListener("click", async () => {
+    const n = String(Math.floor(Math.random() * 1e6)).padStart(6, "0");
+    document.getElementById("telefono").value = `5216860${n}`;
+    document.getElementById("nombre").value = `Cliente ${n}`;
+    hilo.replaceChildren();
+    aviso(`Nuevo cliente (5216860${n}): conversación limpia.`);
+    await marcarLeido();
+  });
+  marcarLeido().then(sondear);
+</script>
+</body>
+</html>

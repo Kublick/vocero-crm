@@ -86,8 +86,8 @@
     "/api/bot/stage": {
       "post": {
         "summary": "Mover al lead a una etapa siguiente del pipeline",
-        "description": "038 — Solo hacia adelante y a etapas abiertas: las de `lead.nextStages` del contexto. Ganar o perder un trato lo decide una persona. Exige la herramienta `etapa` encendida en el perfil y la IA activa en la conversación. Pedir la etapa actual es 200 con `changed: false` y no anota nada: reintentar es inocuo. Cada movimiento queda en la bitácora de etapas como hecho por el bot.",
-        "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object", "required": ["conversationId", "stage"], "properties": { "conversationId": { "type": "string" }, "stage": { "type": "string", "description": "Nombre de la etapa (sin distinguir mayúsculas) o su id", "examples": ["Calificado"] } } } } } },
+        "description": "038 — Solo hacia adelante y a etapas abiertas: las de `lead.nextStages` del contexto. Ganar o perder un trato lo decide una persona. Exige la herramienta `etapa` encendida en el perfil y la IA activa en la conversación. Pedir la etapa actual es 200 con `changed: false` y no anota nada: reintentar es inocuo. Cada movimiento queda en la bitácora de etapas como hecho por el bot. 067 — Con la bandera `TIENDA` y la herramienta `cotizar` encendida, `amountCents` + `currency` capturan el monto del trato en el mismo movimiento (también si ya estaba en esa etapa); sin ellas, 409 `herramienta_apagada`.",
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object", "required": ["conversationId", "stage"], "properties": { "conversationId": { "type": "string" }, "stage": { "type": "string", "description": "Nombre de la etapa (sin distinguir mayúsculas) o su id", "examples": ["Calificado"] }, "amountCents": { "type": "integer", "minimum": 0, "description": "067 — Monto del trato en centavos (lo que se puede comprar ya). Va con `currency`." }, "currency": { "type": "string", "minLength": 3, "maxLength": 3, "examples": ["USD"], "description": "067 — Moneda ISO 4217 del monto. Va con `amountCents`." } } } } } },
         "responses": {
           "200": { "description": "Hecho, o ya estaba ahí (`changed: false`)", "content": { "application/json": { "schema": { "type": "object", "required": ["ok", "changed", "lead"], "properties": { "ok": { "const": true }, "changed": { "type": "boolean" }, "lead": { "type": "object", "properties": { "id": { "type": "string" }, "stageName": { "type": "string" } } } } } } } },
           "404": { "description": "`not_found`: no existe la conversación. `sin_lead`: el contacto no tiene lead en el pipeline.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } },
@@ -95,6 +95,20 @@
           "422": { "description": "`etapa_desconocida` (el mensaje lista las válidas) o cuerpo inválido.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } }
         },
         "x-codigos-409": ["ai_paused", "herramienta_apagada", "etapa_no_permitida", "no_org"]
+      }
+    },
+    "/api/bot/notes": {
+      "post": {
+        "summary": "Dejar una nota interna en el hilo (borrador de cotización)",
+        "description": "067 — Solo con la bandera `TIENDA` (si no, 404 aunque la llave sea válida). El cerebro deja el borrador de una cotización para que una persona lo apruebe: la nota se ve en la Bandeja como «Nota interna · Agente», en vivo, y nunca sale al cliente. Solo escritura: el cerebro no lee notas y el despacho no las lleva. Exige la herramienta `cotizar` encendida en el perfil y la IA activa en la conversación; el flujo de cotizar va nota → etapa → handoff. Cada llamada crea una nota: un reintento la duplica.",
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object", "required": ["conversationId", "texto"], "properties": { "conversationId": { "type": "string" }, "texto": { "type": "string", "minLength": 1, "maxLength": 4096, "description": "Texto plano; se recorta.", "examples": ["Cotización pendiente de aprobar (cot_…)\n• 12 × Contactor ABB A26-30-10 — $1,840.00 c/u — en el enlace"] } } } } } },
+        "responses": {
+          "201": { "description": "Creada", "content": { "application/json": { "schema": { "type": "object", "required": ["nota"], "properties": { "nota": { "type": "object", "required": ["id", "conversationId", "texto", "createdAt", "porAgente"], "properties": { "id": { "type": "string" }, "conversationId": { "type": "string" }, "texto": { "type": "string" }, "createdAt": { "type": "string", "format": "date-time" }, "autor": { "type": "null" }, "porAgente": { "const": true }, "puedeBorrar": { "type": "boolean" } } } } } } } },
+          "404": { "description": "La bandera `TIENDA` está apagada (sin cuerpo) o `not_found`: no existe la conversación.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } },
+          "409": { "description": "`ai_paused` (una persona tomó la conversación), `herramienta_apagada` (`cotizar` no está en `tools`) o `no_org`.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } },
+          "422": { "$ref": "#/components/responses/Invalido" }
+        },
+        "x-codigos-409": ["ai_paused", "herramienta_apagada", "no_org"]
       }
     },
     "/api/bot/handoff": {
@@ -256,7 +270,7 @@
       "Perfil": {
         "type": "object",
         "properties": {
-          "profile": { "type": "object", "properties": { "name": { "type": "string" }, "tone": { "type": ["string", "null"] }, "instructions": { "type": ["string", "null"] }, "escalationRules": { "type": ["string", "null"] }, "greeting": { "type": ["string", "null"] }, "role": { "type": "string", "description": "034 — El rol del agente.", "examples": ["calificador"] }, "tools": { "type": "array", "description": "034 — Las herramientas encendidas. `escalar` siempre. Sin la llave, enciende todas.", "items": { "type": "string", "enum": ["ficha", "etapa", "agendar", "reprogramar", "salida", "escalar"] } } } },
+          "profile": { "type": "object", "properties": { "name": { "type": "string" }, "tone": { "type": ["string", "null"] }, "instructions": { "type": ["string", "null"] }, "escalationRules": { "type": ["string", "null"] }, "greeting": { "type": ["string", "null"] }, "role": { "type": "string", "description": "034 — El rol del agente.", "examples": ["calificador"] }, "tools": { "type": "array", "description": "034 — Las herramientas encendidas. `escalar` siempre. Sin la llave, enciende todas. 067 — `inventario` y `cotizar` solo aparecen con la bandera `TIENDA` del CRM.", "items": { "type": "string", "enum": ["ficha", "etapa", "agendar", "reprogramar", "salida", "inventario", "cotizar", "escalar"] } } } },
           "kb": { "type": "string" },
           "resources": { "type": "array", "items": { "type": "object", "properties": { "label": { "type": "string" }, "url": { "type": "string" } } } },
           "llm": {

@@ -74,6 +74,10 @@ noteId }`). Quien tiene abierta la conversación ve la nota al instante.
   ni cierra la ventana, no cuenta como no leída y no se despacha al cerebro.
 - No viaja por `/api/bot/*`. Exponerla a un cerebro es otra decisión, con su
   contrato.
+- **Enmienda 067 (2026-11-13)**: con la bandera `TIENDA`, el cerebro puede
+  **escribir** una nota (`POST /api/bot/notes`, el borrador de una
+  cotización). Sigue sin leerlas, y el despacho sigue sin llevarlas. Ver
+  [067 D5](../067-cotizar-por-whatsapp/spec.md).
 
 **D6 — Límites.** El texto lleva de 1 a 4 096 caracteres. Las notas se borran
 con la conversación (cascada) y con el contacto (026).

@@ -49,6 +49,7 @@ function aDto(
     texto: fila.texto,
     createdAt: fila.createdAt.toISOString(),
     autor: fila.authorUserId ? { id: fila.authorUserId, nombre: autorNombre ?? "Alguien del equipo" } : null,
+    porAgente: fila.porAgente,
     puedeBorrar: puedeBorrarNota(fila.authorUserId, quien.userId, quien.configura),
   };
 }
@@ -95,6 +96,28 @@ export async function crearNota(
   // Al resto del equipo le llega con `puedeBorrar` calculado para el autor;
   // cada cliente lo corrige con lo que sabe de sí mismo (ver inbox-client).
   publish(quien.organizationId, { type: "note.new", data: { conversationId, note: dto } });
+  return dto;
+}
+
+/**
+ * 067 — Nota que deja el cerebro (`POST /api/bot/notes`), sin autor. Quién
+ * puede escribirla lo decide `src/server/bot/notas.ts`; aquí solo se guarda y
+ * se avisa. Sin autor, solo quien configura la borra.
+ */
+export async function crearNotaDelAgente(
+  organizationId: string,
+  conversationId: string,
+  texto: string
+): Promise<NotaDto> {
+  await conversacionDeLaOrganizacion(organizationId, conversationId);
+  const [fila] = await getDb()
+    .insert(schema.conversationNote)
+    .values({ id: newId("conversationNote"), organizationId, conversationId, texto, porAgente: true })
+    .returning();
+  // Nadie del equipo es «quien pide»: cada cliente relee la lista al recibir
+  // `note.new` y ahí le llega su `puedeBorrar`.
+  const dto = aDto(fila!, null, { organizationId, userId: "", configura: false });
+  publish(organizationId, { type: "note.new", data: { conversationId, note: dto } });
   return dto;
 }
 

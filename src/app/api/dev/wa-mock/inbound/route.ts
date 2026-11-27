@@ -25,6 +25,7 @@ const schema = z
     mimeType: z.string().optional(),
     caption: z.string().optional(),
     filename: z.string().optional(),
+    voice: z.boolean().optional(),
     location: z.record(z.string(), z.unknown()).optional(),
     // 031 — tarjetas de un mensaje `contacts`, con la forma de Meta.
     contacts: z.array(z.record(z.string(), z.unknown())).max(10).optional(),

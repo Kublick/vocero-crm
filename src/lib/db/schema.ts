@@ -1395,6 +1395,8 @@ export const conversationNote = pgTable(
       onDelete: "set null",
     }),
     texto: text("texto").notNull(),
+    /** 067 — La escribió el cerebro (`POST /api/bot/notes`); sin autor. */
+    porAgente: boolean("por_agente").notNull().default(false),
     createdAt: timestamp("created_at").notNull().defaultNow(),
   },
   (t) => [

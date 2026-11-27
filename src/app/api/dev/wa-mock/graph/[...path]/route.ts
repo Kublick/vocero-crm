@@ -268,6 +268,16 @@ export async function GET(req: Request, ctx: Params) {
   // GET {mediaId} (ids "media...") → metadata de adjunto (media proxy del bot)
   if (path.length === 1 && path[0]!.startsWith("media")) {
     const origin = new URL(req.url).origin;
+    // 067 — Lo subido de verdad se describe con su tipo y su tamaño reales.
+    const subida = getWaMockState().medias[path[0]!];
+    if (subida) {
+      return Response.json({
+        id: path[0],
+        mime_type: subida.type,
+        file_size: subida.bytes.byteLength,
+        url: `${origin}/api/dev/wa-mock/media-file/${path[0]}`,
+      });
+    }
     return Response.json({
       id: path[0],
       mime_type: path[0]!.includes("pdf")
@@ -391,6 +401,7 @@ export async function POST(req: Request, ctx: Params) {
       size: bytes.byteLength,
       head: Buffer.from(bytes.subarray(0, 4)).toString("hex"),
     });
+    getWaMockState().medias[id] = { bytes, type: type || "application/octet-stream" };
     return Response.json({ id });
   }
 

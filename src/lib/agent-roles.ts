@@ -17,6 +17,8 @@ export type ClaveHerramienta =
   | "agendar"
   | "reprogramar"
   | "salida"
+  | "inventario"
+  | "cotizar"
   | "escalar";
 
 export type Herramienta = {
@@ -25,6 +27,8 @@ export type Herramienta = {
   descripcion: string;
   /** Solo existe con la bandera `AGENDA` encendida. */
   agenda?: true;
+  /** 067 — Solo existe con la bandera `TIENDA` encendida. */
+  tienda?: true;
   /** Red de seguridad: no se apaga (spec 034, D2). */
   fija?: true;
 };
@@ -63,6 +67,22 @@ export const HERRAMIENTAS: readonly Herramienta[] = [
     descripcion: "Despide con amabilidad a quien no califica, con recursos si los hay.",
   },
   {
+    // 067 — La tienda la consulta el cerebro, no el CRM.
+    clave: "inventario",
+    etiqueta: "Consultar inventario",
+    descripcion:
+      "Busca productos en la tienda y dice si hay existencia. Da el número exacto solo si el cliente pide una cantidad.",
+    tienda: true,
+  },
+  {
+    // 067 — Una persona aprueba toda cotización (spec 067, D4).
+    clave: "cotizar",
+    etiqueta: "Cotizar",
+    descripcion:
+      "Arma el borrador de una cotización con enlace de compra y se lo pasa a una persona para que lo apruebe. Nunca le manda el enlace al cliente.",
+    tienda: true,
+  },
+  {
     clave: "escalar",
     etiqueta: "Pasar a una persona",
     descripcion:
@@ -83,13 +103,20 @@ export function esClaveHerramienta(valor: unknown): valor is ClaveHerramienta {
  * Las herramientas encendidas de un perfil: `null` = todas (lo que tiene una
  * instalación que actualiza). `escalar` siempre va, y en el orden del
  * catálogo. Lo que no es del catálogo se ignora.
+ *
+ * 067 — Las de la tienda solo cuentan con `tienda: true` (la bandera
+ * `TIENDA`; este módulo es puro y no lee el entorno): sin ella, ni `null`
+ * las enciende.
  */
 export function herramientasEfectivas(
-  tools: readonly string[] | null | undefined
+  tools: readonly string[] | null | undefined,
+  { tienda = false }: { tienda?: boolean } = {}
 ): ClaveHerramienta[] {
-  if (!tools) return [...CLAVES_HERRAMIENTA];
-  const encendidas = new Set(tools.filter(esClaveHerramienta));
-  return HERRAMIENTAS.filter((h) => h.fija || encendidas.has(h.clave)).map((h) => h.clave);
+  const existe = (h: Herramienta) => tienda || !h.tienda;
+  const encendidas = tools ? new Set(tools.filter(esClaveHerramienta)) : null;
+  return HERRAMIENTAS.filter(
+    (h) => existe(h) && (h.fija || !encendidas || encendidas.has(h.clave))
+  ).map((h) => h.clave);
 }
 
 export type ClaveRol = "calificador";

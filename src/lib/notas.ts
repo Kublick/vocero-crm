@@ -9,6 +9,8 @@ export type NotaDto = {
   createdAt: string;
   /** `null` si la cuenta de quien la escribió ya no existe. */
   autor: { id: string; nombre: string } | null;
+  /** 067 — La escribió el cerebro; `autor` va en `null`. */
+  porAgente: boolean;
   /** Calculado para quien pide: el autor o quien configura. */
   puedeBorrar: boolean;
 };

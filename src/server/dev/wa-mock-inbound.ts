@@ -33,6 +33,8 @@ type MockMediaInput = {
   mimeType?: string;
   caption?: string;
   filename?: string;
+  /** 067 — Nota de voz (`audio.voice: true` en Meta), no un archivo de audio. */
+  voice?: boolean;
   location?: Record<string, unknown>;
   /** 031 — Las tarjetas de un mensaje `contacts`, con la forma de Meta. */
   contacts?: Record<string, unknown>[];
@@ -86,6 +88,7 @@ function applyMockContent(
     };
     if (input.caption) media.caption = input.caption;
     if (input.filename) media.filename = input.filename;
+    if (type === "audio" && input.voice) media.voice = true;
     message[type] = media;
   }
 }
